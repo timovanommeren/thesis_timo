@@ -1,0 +1,15 @@
+asreview==2.1.1
+asreview-makita==1.1
+notebook==7.4.7
+jupytext==1.17.3
+jupyterlab==4.4.9
+dspy==3.0.3
+pandas==2.3.3
+matplotlib==3.10.7
+openai==2.3.0
+python-dotenv==1.1.1
+
+# stdlib (don’t pin/install via pip):
+# pathlib
+# warnings
+# os
