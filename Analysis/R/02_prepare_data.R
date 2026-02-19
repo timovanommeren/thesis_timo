@@ -2,15 +2,37 @@
 # Function for generic data preparation
 prepare_data <- function(simulation_long, metadata) {
 
+  library(dplyr)
+  
   #filter for run 1 only
   data_run1 <- simulation_long %>%
     filter(run == 1)
+  
+  #select columns to include with criterium as optional
+  id_cols <- c("dataset", "condition", "run", "n_trials",
+               "n_abstracts", "length_abstracts", "llm_temperature")
+  
+  if ("criterium" %in% names(simulation_long)) {
+    id_cols <- c(id_cols, "criterium")
+  }
+  
 
   #transform data from wide to long format
   data = tidyr::pivot_wider(simulation_long,
-                     id_cols    = c(dataset, condition, run, n_trials, n_abstracts, length_abstracts, llm_temperature),
+                     id_cols    = dplyr::all_of(id_cols),
                      names_from = metric,
                      values_from = value)
+  
+  # #rename conditions
+  # data <- data %>%
+  #   mutate(condition = case_when(
+  #     condition == "llm" ~ "LLM",
+  #     condition == "criteria" ~ "Eligibility criteria",
+  #     condition == "random" ~ "Random paper",
+  #     condition == "no_initialisation" ~ "Cold start",
+  #     TRUE ~ condition
+  #   ))
+  # 
   
   meta <- metadata
 
@@ -43,6 +65,7 @@ prepare_data <- function(simulation_long, metadata) {
     simulation = data,
     meta       = meta
   )
+  
 
 }
 

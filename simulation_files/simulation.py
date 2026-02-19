@@ -15,7 +15,7 @@ from metrics import evaluate_simulation
 
 
 
-def run_simulation(datasets: dict, criterium: list, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, papers_screened: int, run: int, stop_at_n: int) -> dict:
+def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, papers_screened: int, run: int, stop_at_n: int) -> dict:
 
     for dataset_names in datasets.keys():
         
@@ -103,7 +103,7 @@ def run_simulation(datasets: dict, criterium: list, out_dir: Path, metadata: pd.
         
         #save all results to csv files
         for sim, condition in zip([simulate_random, simulate_llm, simulate_criteria, simulate_no_initialisation], ['random', 'llm', 'criteria', 'no_initialisation']):
-            sim._results.to_csv(raw_sim_dir / f'{condition}_run_{run}_IVs_{n_abstracts}_{length_abstracts}_{llm_temperature}.csv', index=False)
+            sim._results.to_csv(raw_sim_dir / f'{condition}_run_{run}_IVs_{criterium}_{n_abstracts}_{length_abstracts}_{llm_temperature}.csv', index=False)
         
         # This line drops priors. To access the dataframe before this, just use simulate._results
         df_results_random = simulate_random._results.dropna(axis=0, subset="training_set")
@@ -130,7 +130,8 @@ def run_simulation(datasets: dict, criterium: list, out_dir: Path, metadata: pd.
                             datasets[dataset_names], 
                             dataset_llm, 
                             dataset_criteria, 
-                            prior_idx, 
+                            prior_idx,
+                            criterium=criterium, 
                             n_abstracts=n_abstracts, 
                             length_abstracts=length_abstracts, 
                             llm_temperature=llm_temperature, 

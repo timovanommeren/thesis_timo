@@ -3,11 +3,72 @@ from pathlib import Path
 import json
 import re
 import dspy
+import random
+import time
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
 
-def generate_abstracts(name: str, stimulus: list, out_dir: Path, n_abstracts: int, length_abstracts: int, llm_temperature: float, run: int) -> pd.DataFrame:
+def _is_transient_api_error(exc: Exception) -> bool:
+    transient_class_fragments = [
+        "APIConnectionError",
+        "Timeout",
+        "RateLimitError",
+        "ServiceUnavailable",
+        "InternalServerError",
+        "ConnectError",
+        "ConnectionError",
+    ]
+
+    class_name = exc.__class__.__name__
+    message = str(exc).lower()
+
+    if any(fragment in class_name for fragment in transient_class_fragments):
+        return True
+
+    transient_message_fragments = [
+        "timed out",
+        "timeout",
+        "connection",
+        "network",
+        "temporarily unavailable",
+        "service unavailable",
+        "too many requests",
+        "429",
+        "502",
+        "503",
+        "504",
+        "dns",
+    ]
+    return any(fragment in message for fragment in transient_message_fragments)
+
+
+def _call_with_network_retry(make_abstract, *, criteria: str, length_abstracts: int) -> dspy.Prediction:
+    attempt = 0
+
+    while True:
+        try:
+            return make_abstract(
+                label_relevant=1,
+                criteria=criteria,
+                length_abstracts=length_abstracts
+            )
+        except Exception as exc:
+            if not _is_transient_api_error(exc):
+                raise
+
+            attempt += 1
+            backoff = min(120, 2 ** min(attempt, 7))
+            jitter = random.uniform(0.0, 1.0)
+            sleep_seconds = backoff + jitter
+            print(
+                f"Transient network/API error while generating abstract (attempt {attempt}). "
+                f"Retrying in {sleep_seconds:.1f}s. Error: {exc}"
+            )
+            time.sleep(sleep_seconds)
+
+
+def generate_abstracts(name: str, stimulus: dict, criterium: str, out_dir: Path, n_abstracts: int, length_abstracts: int, llm_temperature: float, run: int) -> pd.DataFrame:
     
     ### Create signature ###
     lm = dspy.LM("openai/gpt-4o-mini",
@@ -57,12 +118,11 @@ def generate_abstracts(name: str, stimulus: list, out_dir: Path, n_abstracts: in
                 print(f"Regenerating abstracts for dataset {name} (attempt {attempt}/{max_attempts}).")
             attempt += 1
         
-            #generate relevant abstract
-            relevant = make_abstract(
-                label_relevant=1,
-                criteria = stimulus['inclusion_criteria'],
-                length_abstracts=length_abstracts,
-                llm_temperature=llm_temperature,
+            # generate relevant abstract (network errors retried until connection returns)
+            relevant = _call_with_network_retry(
+                make_abstract,
+                criteria=stimulus[criterium],
+                length_abstracts=length_abstracts
             )
 
             relevant_abstract = {
@@ -93,7 +153,7 @@ def generate_abstracts(name: str, stimulus: list, out_dir: Path, n_abstracts: in
     df_generated = df_generated.astype({"label_included":int})
        
     #save generated abstracts to csv file in new directory
-    path_abstracts = out_dir / name / f"llm_abstracts/llm_abstracts_run_{run}_IVs_{n_abstracts}_{length_abstracts}_{llm_temperature}.csv"
+    path_abstracts = out_dir / name / f"llm_abstracts/llm_abstracts_run_{run}_IVs_{criterium}_{n_abstracts}_{length_abstracts}_{llm_temperature}.csv"
     path_abstracts.parent.mkdir(parents=True, exist_ok=True)
     df_generated.to_csv(path_abstracts, index=False)
 

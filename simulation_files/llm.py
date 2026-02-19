@@ -8,7 +8,7 @@ from prompting import generate_abstracts
 
 ### Prepare the llm datasets ###
 
-def prepare_datasets(dataset: pd.DataFrame, name: str, criterium: list, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, run: int) -> dict:
+def prepare_datasets(dataset: pd.DataFrame, name: str, criterium: str, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, run: int) -> dict:
 
     ### RETRIEVE CRITERIA FROM METADATA ##########################################################
 
@@ -18,10 +18,9 @@ def prepare_datasets(dataset: pd.DataFrame, name: str, criterium: list, out_dir:
     if not stimuli:
         return None
 
-
     ### GENERATE ABSTRACTS #################################################################
 
-    generated_abstracts = generate_abstracts(name=name, stimulus=stimuli, out_dir=out_dir, n_abstracts=n_abstracts, length_abstracts=length_abstracts, llm_temperature=llm_temperature, run=run)
+    generated_abstracts = generate_abstracts(name=name, stimulus=stimuli, criterium = criterium, out_dir=out_dir, n_abstracts=n_abstracts, length_abstracts=length_abstracts, llm_temperature=llm_temperature, run=run)
      
     # # Ensure exactly n_abstracts included and n_abstracts excluded (1:1 ratio)
     # # If not, regenerate up to max_retries times
@@ -56,13 +55,11 @@ def prepare_datasets(dataset: pd.DataFrame, name: str, criterium: list, out_dir:
     }
  
 
- 
-
     ### APPEND CRITERIA TO DATASET (AS CONTROL CONDITION) ##########################################################   
     
     # Create dataframe with 2 prior rows: inclusion criteria (label=1) and exclusion criteria (label=0)
     included_row = {col: '' for col in dataset.columns}
-    included_row['abstract'] = stimuli['inclusion_criteria']
+    included_row['abstract'] = stimuli[criterium]
     included_row['label_included'] = 1
     criteria_data = pd.DataFrame([included_row])
 

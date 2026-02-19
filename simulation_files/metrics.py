@@ -13,7 +13,7 @@ from asreviewcontrib.insights import algorithms
 from asreviewcontrib.insights import metrics
 
 
-def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset_llms: pd.DataFrame, dataset_criteria: pd.DataFrame, prior_idx: list, n_abstracts: int, length_abstracts: int, llm_temperature: float, papers_screened: int, out_dir: Path, run: int, stop_at_n: int) -> None:
+def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset_llms: pd.DataFrame, dataset_criteria: pd.DataFrame, prior_idx: list, criterium: str, n_abstracts: int, length_abstracts: int, llm_temperature: float, papers_screened: int, out_dir: Path, run: int, stop_at_n: int) -> None:
 
     ### PREPARE DATA FOR EVALUATION ############################################################################################################
 
@@ -47,6 +47,7 @@ def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset
     recall_plot(
         df_cumsum=df_cumsum,
         dataset_names=dataset_names,
+        criterium=criterium,
         n_abstracts=n_abstracts,
         length_abstracts=length_abstracts,
         llm_temperature=llm_temperature,
@@ -99,12 +100,14 @@ def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset
             
             # Determine if parameters apply to this condition
             is_llm = (condition == 'llm')
+            is_criteria = (condition == 'criteria')
             
             results_row.append({
                 'dataset': dataset_names,
                 'condition': condition,
                 'metric': metric_name,
                 'value': metric_value,
+                'criterium': criterium if (is_llm or is_criteria) else np.nan,
                 'n_abstracts': n_abstracts if is_llm else np.nan,
                 'length_abstracts': length_abstracts if is_llm else np.nan,
                 'llm_temperature': llm_temperature if is_llm else np.nan,
@@ -158,7 +161,7 @@ def tdd_at(results, threshold):
 
 
 
-def recall_plot(df_cumsum: pd.DataFrame, dataset_names: str, n_abstracts: int, length_abstracts: int, llm_temperature: float, out_dir: Path, run: int, stop_at_n: int):
+def recall_plot(df_cumsum: pd.DataFrame, dataset_names: str, criterium: str, n_abstracts: int, length_abstracts: int, llm_temperature: float, out_dir: Path, run: int, stop_at_n: int):
     
     plt.figure(figsize=(10, 6))
 
@@ -185,7 +188,7 @@ def recall_plot(df_cumsum: pd.DataFrame, dataset_names: str, n_abstracts: int, l
     recalls_folder.mkdir(parents=True, exist_ok=True)
     
     # save plot to output_path
-    plot_path = recalls_folder / f'recall_plot_run_{run}_IVs_{n_abstracts}_{length_abstracts}_{llm_temperature}.png'
+    plot_path = recalls_folder / f'recall_plot_run_{run}_IVs_{criterium}_{n_abstracts}_{length_abstracts}_{llm_temperature}.png'
     plt.savefig(plot_path)
     plt.close()
 
