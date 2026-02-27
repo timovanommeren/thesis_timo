@@ -237,8 +237,10 @@ check_homogeneity <- function(data,
       breaks = names(colours),
       labels = c("LLM", "Eligibility criteria", "True examples", "Cold Start"),
       drop = FALSE
-    ) +
-    ggplot2::geom_jitter(width = jitter_width, alpha = jitter_alpha)
+    ) 
+  
+  # +
+  #   ggplot2::geom_jitter(width = jitter_width, alpha = jitter_alpha)
   
   
   # Levene's test

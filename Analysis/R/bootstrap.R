@@ -54,11 +54,16 @@ for (i in seq_len(B)){
 }
 
 
+se_vec <- apply(boot_est, 2, sd, na.rm = TRUE)   # same as sqrt(apply(boot_est, 2, var))
+
+# Build legend labels: "contrast (SE = ...)"
+legend_labels <- sprintf("%s (SE = %.3f)", contrast_levels, se_vec)
+
 #plot overlapping histograms of the p_values of all three contrasts
 hist(boot_est[,1], breaks = 20, col = rgb(1,0,0,0.5), xlim = c(-12,2), main = "Bootstrap estimate", xlab = "estimate") 
 hist(boot_est[,2], breaks = 20, col = rgb(0,1,0,0.5), add = TRUE) 
 hist(boot_est[,3], breaks = 20, col = rgb(0,0,1,0.5), add = TRUE) 
-legend("topright", legend = contrast_levels, fill = c(rgb(1,0,0,0.5), rgb(0,1,0,0.5), rgb(0,0,1,0.5)))
+legend("topright", legend = legend_labels, fill = c(rgb(1,0,0,0.5), rgb(0,1,0,0.5), rgb(0,0,1,0.5)))
 
 var(boot_est[,1])
 var(boot_est[,2])
