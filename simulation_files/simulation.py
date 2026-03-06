@@ -15,7 +15,7 @@ from metrics import evaluate_simulation
 
 
 
-def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, papers_screened: int, run: int, stop_at_n: int) -> dict:
+def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, run: int, stop_at_n: int) -> dict:
 
     for dataset_names in datasets.keys():
         
@@ -55,7 +55,7 @@ def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.E
                 classifier=SVM(C=0.11, loss="squared_hinge", random_state=run),
                 balancer=Balanced(ratio=9.8),
                 feature_extractor=Tfidf(**tfidf_kwargs),
-                stopper=NLabeled(stop_at_n + len(dataset_criteria['prior_idx']))
+                stopper=NLabeled(stop_at_n if stop_at_n == -1 else stop_at_n + len(dataset_criteria['prior_idx']))
             )
         ]
         
@@ -118,6 +118,17 @@ def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.E
             'no_initialisation': df_results_no_initialisation
         }
         
+        if stop_at_n == -1:
+            total_records = len(datasets[dataset_names])
+            papers_screened = {cond: total_records for cond in ['random', 'llm', 'criteria', 'no_initialisation']}
+        else:
+            papers_screened = {
+                'random': len(df_results_random),
+                'llm': len(df_results_llm),
+                'criteria': len(df_results_criteria),
+                'no_initialisation': len(df_results_no_initialisation),
+            }
+        
         #################################################################################################################
         
         
@@ -126,19 +137,18 @@ def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.E
         
         ### EVALUATE SIMULATION RUN #####################################################################################
         
-        evaluate_simulation(simulation_results, 
-                            datasets[dataset_names], 
-                            dataset_llm, 
-                            dataset_criteria, 
+        evaluate_simulation(simulation_results,
+                            datasets[dataset_names],
+                            dataset_llm,
+                            dataset_criteria,
                             prior_idx,
-                            criterium=criterium, 
-                            n_abstracts=n_abstracts, 
-                            length_abstracts=length_abstracts, 
-                            llm_temperature=llm_temperature, 
-                            papers_screened=papers_screened, 
-                            out_dir=out_dir, 
-                            run=run, 
-                            stop_at_n=stop_at_n)
+                            criterium=criterium,
+                            n_abstracts=n_abstracts,
+                            length_abstracts=length_abstracts,
+                            llm_temperature=llm_temperature,
+                            papers_screened=papers_screened,
+                            out_dir=out_dir,
+                            run=run)
 
         #################################################################################################################
         

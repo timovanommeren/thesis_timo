@@ -13,7 +13,7 @@ from asreviewcontrib.insights import algorithms
 from asreviewcontrib.insights import metrics
 
 
-def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset_llms: pd.DataFrame, dataset_criteria: pd.DataFrame, prior_idx: list, criterium: str, n_abstracts: int, length_abstracts: int, llm_temperature: float, papers_screened: int, out_dir: Path, run: int, stop_at_n: int) -> None:
+def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset_llms: pd.DataFrame, dataset_criteria: pd.DataFrame, prior_idx: list, criterium: str, n_abstracts: int, length_abstracts: int, llm_temperature: float, papers_screened: dict, out_dir: Path, run: int) -> None:
 
     ### PREPARE DATA FOR EVALUATION ############################################################################################################
 
@@ -25,17 +25,26 @@ def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset
     # padded_labels_criteria = pad_labels(simulation_results['criteria']["label"].reset_index(drop=True), 0, len(dataset_criteria['dataset']), stop_at_n) # idem for criteria condition
     # padded_labels_no_initialisation = pad_labels(simulation_results['no_initialisation']["label"].reset_index(drop=True), 0, len(dataset), stop_at_n)
 
-    # concatenate the three cumulative sum results in one dataframe for adding metadata and plottingq
+    # Compute per-condition cumsums sliced to their own papers_screened, then pad
+    # shorter conditions with their final value (flat line) so all series reach max_ps.
+    max_ps = max(papers_screened.values())
+
+    def _pad_cumsum(series: pd.Series, length: int) -> pd.Series:
+        s = series.reset_index(drop=True)
+        n_pad = length - len(s)
+        if n_pad <= 0:
+            return s
+        last = s.iloc[-1] if len(s) > 0 else 0
+        return pd.concat([s, pd.Series([last] * n_pad)], ignore_index=True)
+
     df_cumsum = pd.DataFrame({
-        'Random Initialization': simulation_results['random']["label"].reset_index(drop=True).iloc[:100].cumsum(),
-        'LLM Initialization': simulation_results['llm']["label"].reset_index(drop=True).iloc[:100].cumsum(),
-        'Criteria Initialization': simulation_results['criteria']["label"].reset_index(drop=True).iloc[:100].cumsum(),
-        'No Initialization': simulation_results['no_initialisation']["label"].reset_index(drop=True).iloc[:100].cumsum()
+        'Random Initialization':   _pad_cumsum(simulation_results['random']["label"].reset_index(drop=True).iloc[:papers_screened['random']].cumsum(), max_ps),
+        'LLM Initialization':      _pad_cumsum(simulation_results['llm']["label"].reset_index(drop=True).iloc[:papers_screened['llm']].cumsum(), max_ps),
+        'Criteria Initialization': _pad_cumsum(simulation_results['criteria']["label"].reset_index(drop=True).iloc[:papers_screened['criteria']].cumsum(), max_ps),
+        'No Initialization':       _pad_cumsum(simulation_results['no_initialisation']["label"].reset_index(drop=True).iloc[:papers_screened['no_initialisation']].cumsum(), max_ps),
     })
-    
-    # Calculate the actual number of runs (retrievals) performed
-    n_trials = len(simulation_results['random']["label"].reset_index(drop=True).iloc[:100])
-    
+
+    print(f"Number of papers screened per condition: {papers_screened}")
     ############################################################################################################################################
     
     
@@ -53,7 +62,7 @@ def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset
         llm_temperature=llm_temperature,
         out_dir=out_dir,
         run=run,
-        stop_at_n=stop_at_n
+        papers_screened=papers_screened,
     )
     
     ############################################################################################################################################
@@ -65,16 +74,16 @@ def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset
     #### CALCULATE OUTCOME METRICS ############################################################################################################
 
     # Calculate the number of relevant records found at TDD threshold (capped at 100 rows)
-    td_random = tdd_at({'record_id': simulation_results['random']['record_id'].iloc[:100], 'label': simulation_results['random']['label'].iloc[:100]}, papers_screened)[1]
-    td_llm = tdd_at({'record_id': simulation_results['llm']['record_id'].iloc[:100], 'label': simulation_results['llm']['label'].iloc[:100]}, papers_screened)[1]
-    td_criteria = tdd_at({'record_id': simulation_results['criteria']['record_id'].iloc[:100], 'label': simulation_results['criteria']['label'].iloc[:100]}, papers_screened)[1]
-    td_no_initialisation = tdd_at({'record_id': simulation_results['no_initialisation']['record_id'].iloc[:100], 'label': simulation_results['no_initialisation']['label'].iloc[:100]}, papers_screened)[1]
+    td_random = papers_found({'record_id': simulation_results['random']['record_id'].iloc[:100], 'label': simulation_results['random']['label'].iloc[:100]}, papers_screened['random'])[1]
+    td_llm = papers_found({'record_id': simulation_results['llm']['record_id'].iloc[:100], 'label': simulation_results['llm']['label'].iloc[:100]}, papers_screened['llm'])[1]
+    td_criteria = papers_found({'record_id': simulation_results['criteria']['record_id'].iloc[:100], 'label': simulation_results['criteria']['label'].iloc[:100]}, papers_screened['criteria'])[1]
+    td_no_initialisation = papers_found({'record_id': simulation_results['no_initialisation']['record_id'].iloc[:100], 'label': simulation_results['no_initialisation']['label'].iloc[:100]}, papers_screened['no_initialisation'])[1]
 
     # Calculate the number of records that need to be screened to find the first relevant record (ATD)
-    atd_random = metrics._average_time_to_discovery(tdd_at({'record_id': simulation_results['random']['record_id'].iloc[:100], 'label': simulation_results['random']['label'].iloc[:100]}, papers_screened)[0])
-    atd_llm = metrics._average_time_to_discovery(tdd_at({'record_id': simulation_results['llm']['record_id'].iloc[:100], 'label': simulation_results['llm']['label'].iloc[:100]}, papers_screened)[0])
-    atd_criteria = metrics._average_time_to_discovery(tdd_at({'record_id': simulation_results['criteria']['record_id'].iloc[:100], 'label': simulation_results['criteria']['label'].iloc[:100]}, papers_screened)[0])
-    atd_no_initialisation = metrics._average_time_to_discovery(tdd_at({'record_id': simulation_results['no_initialisation']['record_id'].iloc[:100], 'label': simulation_results['no_initialisation']['label'].iloc[:100]}, papers_screened)[0])
+    atd_random = metrics._average_time_to_discovery(papers_found({'record_id': simulation_results['random']['record_id'].iloc[:100], 'label': simulation_results['random']['label'].iloc[:100]}, papers_screened['random'])[0])
+    atd_llm = metrics._average_time_to_discovery(papers_found({'record_id': simulation_results['llm']['record_id'].iloc[:100], 'label': simulation_results['llm']['label'].iloc[:100]}, papers_screened['llm'])[0])
+    atd_criteria = metrics._average_time_to_discovery(papers_found({'record_id': simulation_results['criteria']['record_id'].iloc[:100], 'label': simulation_results['criteria']['label'].iloc[:100]}, papers_screened['criteria'])[0])
+    atd_no_initialisation = metrics._average_time_to_discovery(papers_found({'record_id': simulation_results['no_initialisation']['record_id'].iloc[:100], 'label': simulation_results['no_initialisation']['label'].iloc[:100]}, papers_screened['no_initialisation'])[0])
 
     ############################################################################################################################################
 
@@ -111,10 +120,10 @@ def evaluate_simulation(simulation_results: dict, dataset: pd.DataFrame, dataset
                 'n_abstracts': n_abstracts if is_llm else np.nan,
                 'length_abstracts': length_abstracts if is_llm else np.nan,
                 'llm_temperature': llm_temperature if is_llm else np.nan,
-                'tdd@': papers_screened,
+                'tdd@': papers_screened[condition],
                 'timestamp': pd.Timestamp.now().isoformat(),
                 'run': run,  # replicate ID
-                'n_trials': n_trials,  # number of attempted retrievals
+                'n_trials': papers_screened[condition],
             })
             
     # Append to master results file
@@ -154,27 +163,30 @@ def pad_labels(labels, num_priors, num_records, stop_at_n):
 
 
     
-def tdd_at(results, threshold):
+def papers_found(results, threshold):
     all_tdd = metrics._time_to_discovery(results['record_id'], results['label'])
     count = sum(iter_idx <= threshold for _, iter_idx in all_tdd)
     return all_tdd, count
 
 
 
-def recall_plot(df_cumsum: pd.DataFrame, dataset_names: str, criterium: str, n_abstracts: int, length_abstracts: int, llm_temperature: float, out_dir: Path, run: int, stop_at_n: int):
-    
+def recall_plot(df_cumsum: pd.DataFrame, dataset_names: str, criterium: str, n_abstracts: int, length_abstracts: int, llm_temperature: float, out_dir: Path, run: int, papers_screened: dict):
+
     plt.figure(figsize=(10, 6))
 
-    # Use 1-based x-axis: screening 1 through stop_at_n
+    # x-axis runs to max papers_screened across all conditions (df_cumsum already padded)
     x_axis = range(1, len(df_cumsum['Random Initialization']) + 1)
-    plt.plot(x_axis, df_cumsum['Random Initialization'], label='Random Initialization', color='blue')
-    plt.plot(x_axis, df_cumsum['LLM Initialization'], label='LLM Initialization', color='green')
-    plt.plot(x_axis, df_cumsum['Criteria Initialization'], label='Criteria Initialization', color='orange')
-    plt.plot(x_axis, df_cumsum['No Initialization'], label='No Initialization', color='red')
+    plt.plot(x_axis, df_cumsum['Random Initialization'], label='Random Initialization', color='#2ab07f')
+    plt.plot(x_axis, df_cumsum['LLM Initialization'], label='LLM Initialization', color='#482475')
+    plt.plot(x_axis, df_cumsum['Criteria Initialization'], label='Criteria Initialization', color='#2d708e')
+    plt.plot(x_axis, df_cumsum['No Initialization'], label='No Initialization', color='#bddf26')
 
-    # Add dashed line at stop_at_n
-    if stop_at_n != -1:
-        plt.axvline(x=stop_at_n, color='black', linestyle='--', label='stopped screening')
+    # Add per-condition dashed stop lines when conditions have different screening lengths
+    ps_values = list(papers_screened.values())
+    if len(set(ps_values)) > 1:
+        _stop_colors = {'random': '#2ab07f', 'llm': '#482475', 'criteria': '#2d708e', 'no_initialisation': '#bddf26'}
+        for cond, ps_val in papers_screened.items():
+            plt.axvline(x=ps_val, color=_stop_colors[cond], linestyle='--', alpha=0.4)
 
     plt.xlabel('Number of Records Screened')
     plt.ylabel('Number of Relevant Records Found')
@@ -193,99 +205,3 @@ def recall_plot(df_cumsum: pd.DataFrame, dataset_names: str, criterium: str, n_a
     plt.close()
 
 
-
-
-### CREATE AGGREGATED RECALL PLOTS FUNCTION ##############################################################################################################################################
-
-def aggregate_recall_plots(datasets: dict, out_dir: Path, stop_at_n: int) -> None:
-  
-  for name in datasets:
-      
-    raw_output = out_dir / name / 'raw_simulations'
-        
-    random_runs = []
-    llm_runs = []
-    criteria_runs = []
-    no_initialisation_runs = []
-
-    # loop over all csv files in raw_output
-    for file in Path(raw_output).glob('*.csv'):
-        df = pd.read_csv(file)
-
-        #drop the first rows if it contains NaN
-        df = df.dropna(axis=0, subset=["training_set"])
-        
-        # check if the file is random priors, llm or no priors
-        if 'random' in file.name:
-            random_runs.append(df)
-        elif 'llm' in file.name:
-            llm_runs.append(df)
-        elif 'criteria' in file.name:
-            criteria_runs.append(df)
-        elif 'no_initialisation' in file.name:
-            no_initialisation_runs.append(df)   
-            
-    # For each method, first calculate cumsum for each run, then compute mean and SEM across runs
-    random_cumsums = [df.loc[df["querier"].notna(), "label"].iloc[:stop_at_n].cumsum().reset_index(drop=True) for df in random_runs]
-    agg_random = pd.DataFrame({
-        'Cumulative Sum': pd.concat(random_cumsums, axis=1).mean(axis=1),
-        'SE': pd.concat(random_cumsums, axis=1).sem(axis=1)
-    })
-
-    llm_cumsums = [df.loc[df["querier"].notna(), "label"].iloc[:stop_at_n].cumsum().reset_index(drop=True) for df in llm_runs]
-    agg_llm = pd.DataFrame({
-        'Cumulative Sum': pd.concat(llm_cumsums, axis=1).mean(axis=1),
-        'SE': pd.concat(llm_cumsums, axis=1).sem(axis=1)
-    })
-    
-    criteria_cumsums = [df.loc[df["querier"].notna(), "label"].iloc[:stop_at_n].cumsum().reset_index(drop=True) for df in criteria_runs]
-    agg_criteria = pd.DataFrame({
-        'Cumulative Sum': pd.concat(criteria_cumsums, axis=1).mean(axis=1),
-        'SE': pd.concat(criteria_cumsums, axis=1).sem(axis=1)
-    })
-
-    no_initialisation_cumsums = [df.loc[df["querier"].notna(), "label"].iloc[:stop_at_n].cumsum().reset_index(drop=True) for df in no_initialisation_runs]
-    agg_no_initialisation = pd.DataFrame({
-        'Cumulative Sum': pd.concat(no_initialisation_cumsums, axis=1).mean(axis=1),
-        'SE': pd.concat(no_initialisation_cumsums, axis=1).sem(axis=1)
-    })
-
-
-    ### PLOT THE AGGREGATED RECALL CURVES ############################################################################################
-    
-    # Note that this function does not work if stop_at_n == -1 (no stopping criterion)
-    
-    plt.figure(figsize=(10, 6))
-
-    x_axis = range(1, stop_at_n + 1)
-
-    # Use 1-based x-axis: screening 1 through stop_at_n
-    plt.plot(x_axis, agg_random['Cumulative Sum'][:stop_at_n], label='True Example Condition', color='blue')
-    plt.fill_between(x_axis, agg_random['Cumulative Sum'][:stop_at_n] - agg_random['SE'][:stop_at_n], agg_random['Cumulative Sum'][:stop_at_n] + agg_random['SE'][:stop_at_n], color='royalblue', alpha=0.3)
-
-    plt.plot(x_axis, agg_llm['Cumulative Sum'][:stop_at_n], label='LLM Condition', color='green')
-    plt.fill_between(x_axis, agg_llm['Cumulative Sum'][:stop_at_n] - agg_llm['SE'][:stop_at_n], agg_llm['Cumulative Sum'][:stop_at_n] + agg_llm['SE'][:stop_at_n], color='forestgreen', alpha=0.3)
-    
-    plt.plot(x_axis, agg_criteria['Cumulative Sum'][:stop_at_n], label='Inclusion Criteria Condition', color='orange')
-    plt.fill_between(x_axis, agg_criteria['Cumulative Sum'][:stop_at_n] - agg_criteria['SE'][:stop_at_n], agg_criteria['Cumulative Sum'][:stop_at_n] + agg_criteria['SE'][:stop_at_n], color='goldenrod', alpha=0.3)
-    
-    plt.plot(x_axis, agg_no_initialisation['Cumulative Sum'][:stop_at_n], label='Cold Start Condition', color='red')
-    plt.fill_between(x_axis, agg_no_initialisation['Cumulative Sum'][:stop_at_n] - agg_no_initialisation['SE'][:stop_at_n], agg_no_initialisation['Cumulative Sum'][:stop_at_n] + agg_no_initialisation['SE'][:stop_at_n], color='lightsalmon', alpha=0.3)
-
-    # Add dashed line at stop_at_n
-    plt.axvline(x=stop_at_n, color='black', linestyle='--', label='stop screening')
-
-    plt.xlabel('Number of Records Screened')
-    plt.ylabel('Number of Relevant Records Found')
-    plt.title('Number of Relevant Records Found vs. Number of Records Screened')
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    
-    # save plot to output_path
-    plot_path = out_dir / name / 'aggregate_recall_plot.png'
-    plt.savefig(plot_path)
-    plt.close()
-    
-    
-    

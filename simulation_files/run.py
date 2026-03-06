@@ -6,7 +6,7 @@ import time
 
 
 from simulation import run_simulation
-from metrics import aggregate_recall_plots
+from aggregate_results import aggregate_recall_plots
 from config import load_pyproject_config
 
 app = typer.Typer()
@@ -50,9 +50,6 @@ def run(
     n_abstracts = config.get("n_abstracts")
     length_abstracts = config.get("length_abstracts")
     llm_temperature = config.get("llm_temperature")
-
-    # Parameters for evaluation (DVs)
-    papers_screened = stop_at_n if stop_at_n != -1 else None  
 
 
   
@@ -140,7 +137,6 @@ def run(
                     n_abstracts=n_abs,
                     length_abstracts=len_abs,
                     llm_temperature=temp,
-                    papers_screened=papers_screened,
                     run=global_run,
                     stop_at_n=stop_at_n
                 )
@@ -162,9 +158,8 @@ def run(
     ### RETURN AGGREGATE RECALL PLOTS ##########################################################################
     
     aggregate_recall_plots(
-        datasets=datasets, 
-        out_dir=out_dir, 
-        stop_at_n=stop_at_n
+        datasets=datasets,
+        out_dir=out_dir,
     )
     
     ############################################################################################################

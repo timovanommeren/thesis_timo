@@ -17,21 +17,46 @@
 
 Researchers and practitioners are continually challenged to base their decisions on the latest scientific evidence \parencite{sackett1996evidence, subbiah2023next, sheridan2016achievements, chalmers2002brief}. To that end, systematic reviews and meta-analyses were developed as rigorous methods of summarizing scientific literature \parencite{grant2009typology, brignardello2025systematic, borenstein2021introduction, kicinski2015publication}. However, systematically reviewing large bodies of literature can be time-consuming. In particular, screening titles and abstracts to identify relevant papers is often a major bottleneck limiting the practical applicability of systematic reviews \parencite{nussbaumer2021resource, bastian2010seventy, borah2017analysis}.
 
-Fortunately, recent advances in machine learning have produced tools that assist researchers in screening papers by prioritizing the most relevant papers for screening first \parencite{van2021open, ouzzani2016rayyan, ge2024leveraging, dos2023usefulness}. One such tool is \textit{ASReview}, an open-source software package for AI-assisted systematic reviews \parencite{van2021open, asreviewvs2jonathan}. ASReview uses active learning models to iteratively learn from the user's screening decisions and adaptively prioritize the most relevant papers for screening. AI-assisted screening can significantly reduce the time and effort needed to conduct systematic reviews and may even help identify more relevant papers compared to traditional screening methods \parencite{teijema2025large, byrne2024impact, ferdinands2023performance, van2025hunt}. 
+Fortunately, recent advances in machine learning have produced tools that assist researchers in screening papers by prioritizing the most relevant papers for screening first \parencite{van2021open, ouzzani2016rayyan, ge2024leveraging, dos2023usefulness}. One such tool is \textit{ASReview}, an open-source software package for AI-assisted systematic reviews \parencite{van2021open, asreviewvs2jonathan}. ASReview uses active learning models to iteratively learn from the user's screening decisions and adaptively prioritize the most relevant papers for screening (see figure \ref{fig:minimal-recall-plot}). AI-assisted screening can significantly reduce the time and effort needed to conduct systematic reviews and may even help identify more relevant papers compared to screening without the help of AI \parencite{teijema2025large, byrne2024impact, ferdinands2023performance, van2025hunt}. 
 
 \subsection{The problem: the cold start problem}
 
-A key challenge limiting the application of AI-assisted systematic reviews is the "cold start" problem \parencite{van2021open, lika2014facing}. In the context of AI-assisted systematic reviews, the cold start problem refers to the inability of the active learning model to prioritize relevant papers for screening when it has yet to be trained on any examples of relevant papers \parencite{bobadilla2013recommender, zhang2023cold}. Notably, however, the cold start problem is usually not an issue because researchers can initialize, or 'warm up', the active learning model using \textit{true examples} of relevant papers prior to screening \parencite{panda2022approaches}. However, in some cases little to no prior research may be available \parencite{funtowicz1994uncertainty, evans2022sage}. In this case, the researcher may have to start screening papers at random until a relevant paper has been found which the model can be trained on. The cold start problem is particularly problematic in crisis situations such as COVID-19, where there may not be relevant prior literature and timely evidence synthesis is crucial \parencite{tricco2020rapid, kurzer2023follow}.
+%what is the cold start in AI-assisted systematic reviews 
+A key challenge limiting the application of AI-assisted systematic reviews is the ``cold start'' problem \parencite{van2021open, teijema2025large}. In the context of AI-assisted systematic reviews, the cold start problem refers to the inability of the active learning model to prioritize relevant papers for screening when it has yet to be trained on any examples of relevant papers\footnote{The cold start problem is a well-known issue in recommender systems and active learning more generally \parencite{panda2022approaches, lika2014facing, bobadilla2013recommender}.}. 
+
+%when does the cold start problem arise
+Accordingly, a researcher can be said to be facing a cold start when no examples of relevant papers are available prior to screening. In this case, the researcher may have to start screening papers at random until a relevant paper to train the AI model on is found. This may take a long time, especially when the percentage of relevant papers returned by a systematic search is low \parencite{bastian2010seventy, borah2017analysis}.
+
+%when is the cold start problem an issue
+% Usually, the cold start problem is not a significant issue because researchers can often initialize, or `warm up', the active learning model using \textit{true examples} of relevant papers prior to screening. Moreover, it has been found that  
+Notably, screening papers at random until a relevant paper has been found does not appear to impact the overall performance of AI-assisted systematic reviews \parencite{oude2023can}. One possible explanation is that, once a relevant paper is identified, the AI model has already amassed a substantial training set comprising all the papers labeled as irrelevant up to that point, along with the one relevant paper. This allows the AI model to quickly `catch up' compared to starting with AI screening from the very beginning. In other words, a cold start only affects the \textit{starting performance} of AI-assisted systematic reviews. 
+
+Thus, the cold start problem is an issue when no prior examples of relevant papers are available and decisions need to be made in a timely manner. This may be the case in crisis situations such as COVID-19 \parencite{funtowicz1994uncertainty, evans2022sage}. In the early days of the pandemic, evidence-based decision-making relied on consulting experts and conducting rapid reviews, which sacrifice rigor for speed \parencite{tricco2020rapid, kurzer2023follow}. Therefore, addressing the cold start problem in AI-assisted systematic reviews can improve evidence-based decision-making, particularly in crisis situations where timely evidence synthesis is crucial.
+
+
+
+
+% In this case, the researcher may have to start screening papers at random until a relevant paper has been found which the AI can be trained on. Though starting with screening at random does not seem to affect the overall performance of AI-assisted systematic reviews \parencite{oude2023can}, it may lead to suboptimal \textit{starting performance}. 
+
+% Thus, the cold start problem is a limiting factor to the application of AI-assisted systematic reviews in situations where no prior examples of relevant papers are available and decisions need to be made in a timely manner. Addressing the cold start problem in AI-assisted systematic reviews may therefore contribute to evidence-based decision making in crisis situations such as COVID-19, where rapid reviews which sacrifice rigor for speed are currently the standard \parencite{tricco2020rapid, kurzer2023follow}.
+
 
 % A key challenge to using active learning for systematic reviews is that these models face a "cold start". In general, the cold start problem  refers to the inability of some recommender systems to provide accurate recommendations when dealing with new users or items \parencite{}.
 
 % the cold start problem arises when the active learning model has no prior examples of relevant papers to be trained on prior to screening \parencite{van2021open}. As a result, the user may have to start screening papers at random without the active learning model being able to prioritize relevant papers for screening, until a relevant paper has been found and the model can be trained on this example. This may lead to suboptimal starting performance and increased screening time, especially when the percentage of relevant papers returned by a systematic search is low. 
 
+\begin{figure}
+  \centering
+  \includegraphics[width=0.9\textwidth]{results/minimal_recall_plot.png} % adjust path/width
+  \caption{Recall plot of AI-assisted screening and manual screening. The x-axis shows the proportion of papers screened (0--1) and the y-axis shows the number of relevant papers found. The blue line shows a simulated screening of the \textit{Appenzeller-Herzog\_2019} dataset with ASReview and the black line shows the expected recall curve when manually screening.}
+  \label{fig:minimal-recall-plot}
+\end{figure}
+
 \subsection{The proposed solution: eligibility criteria and large language models}
 
 % It may be possible to overcome Large language models (LLMs) can address the cold start problem in AI-assisted systematic reviews, even when there are no prior examples of relevant papers. Specifically, LLMs can generate plausibly relevant titles and abstracts for a systematic review based on that review's eligibility criteria criteria. These examples can then be used to train an active learning model before screening begins, thus avoiding a cold start. Indeed, LLMs have already been shown to be effective in addressing the cold start problem in recommender systems and active learning . Notably, however, while there are many studies on the application of LLMs to various stages of the systematic review process \parencite{lieberum2025large, cao2025automation, sollini2025human, kim2025evaluating, bron2024combining, delgado2025transforming}, to the best of our knowledge, there are no studies that have investigated the use of LLMs to initialize active learning models and overcome the cold start problem in AI-assisted systematic reviews. Consequently, it remains unclear how starting performance is affected by the use of LLM-generated examples compared to a cold start, the use of actual examples of relevant papers, and the direct use of the eligibility criteria criteria as an example of a relevant paper. This study aims to investigate these questions through a simulation study using ASReview.
 
-A possible solution to the cold start problem is to use the systematic review's eligibility criteria criteria to initialize the active learning model. The eligibility criteria criteria of a systematic review are typically well-defined and provide a clear description of what constitutes a relevant paper for that review \parencite{cochraneChapterDefining}. By using the eligibility criteria criteria as an example of a relevant paper, the active learning model can be trained on this example before screening begins, thus potentially avoiding a cold start. Moreover, it may be possible to further improve starting performance by using large language models (LLMs) to generate synthetic examples of relevant papers based on the eligibility criteria criteria \parencite{riegler2025using}. LLMs have been shown to be able to address the cold start problem by leveraging the information that the LLM has been trained on \parencite{bachmann2025adaptive, zhang2025cold, bayer2024activellm}. LLMs may therefore be able to generate examples that are more similar to actual abstracts of relevant papers than the eligibility criteria criteria themselves \parencite{steyvers2025large}. However, the use LLMs may also add unncessary steps or even negatively impact starting performance by adding noise to the training data of the active learning model \parencite{gartlehner2025responsible, sollini2025human}.
+A possible solution to the cold start problem is to use the systematic review's eligibility criteria to initialize the active learning model. The eligibility criteria of a systematic review are typically well-defined and provide a clear description of what constitutes a relevant paper for that review \parencite{cochraneChapterDefining}. By using the eligibility criteria as an example of a relevant paper, the active learning model can be trained on this example before screening begins, thus potentially avoiding a cold start. Moreover, it may be possible to further improve starting performance by using large language models (LLMs) to generate synthetic examples of relevant papers based on the eligibility criteria \parencite{riegler2025using}. LLMs have been shown to be able to address the cold start problem by leveraging their training data \parencite{zhang2023cold, zhang2025cold, xia2025selection, bayer2024activellm, bachmann2025adaptive}. LLMs may therefore be able to generate examples that are more similar to actual abstracts of relevant papers than the eligibility criteria by themselves \parencite{steyvers2025large}. However, the use LLMs may also add unncessary steps or even negatively impact starting performance by adding noise \parencite{gartlehner2025responsible, sollini2025human}.
 
 
 
@@ -66,77 +91,133 @@ Our study has two main objectives:
 
 \subsection{Simulation study design}
 
-We perform simulations of the abstract-title based screening using ASReview\footnote{Two sequential configurations of ASRview are used: the first queries papers at random until at least one relevant and one irrelevant paper have been found and ASReview's classifier can be trained. Next the U4 configuration is used for the remainder of the screening process. Notably, however, in all conditions except for the cold-start condition, the first configuration is effectively skipped since at least one relevant paper is provided before screening begins and irrelevant papers are plentiful in all systematic reviews.} with different types of starting conditions \parencite{van2021open, asreviewvs2jonathan, de2023synergy}. We simulate the abstract-title based screening of 23 previously screened and labelled systematic reviews from the SYNERGY collection.
+We use ASReview to simulate AI-assisted, title-based screening for systematic reviews\footnote{Two sequential configurations of ASRview are used: the first queries papers at random until at least one relevant and one irrelevant paper have been found and ASReview's classifier can be trained. Next the U4 configuration is used for the remainder of the screening process. Notably, however, in all conditions except for the cold-start condition, the first configuration is effectively skipped since at least one relevant paper is provided before screening begins and irrelevant papers are plentiful in all systematic reviews. See \textcite{asreviewvs2jonathan} for a detailed description of the U4 configuration.}. Each simulation run is initialized using one of the four starting conditions described below. To ensure reproducibility, the simulation is replicated across 23 previously screened and labeled systematic reviews from the SYNERGY collection \parencite{de2023synergy}.
 
-The four different types of starting conditions are the \textit{LLM} condition, the \textit{cold-start} condition, the \textit{true-example} condition, and the \textit{criteria-only} condition.
+The four different types of starting conditions are the \textit{LLM condition}, the \textit{cold-start condition}, the \textit{true-example condition}, and the \textit{criteria-only condition} (for a visual explanation of the four conditions, see results section \ref{sec:recall-curves-for-each-condition}).
 
-In the LLM condition, the eligibility criteria criteria of a published systematic review are provided to OpenAI's GPT-4o-mini model with the request to generate at least one set of titles and abstracts of a paper relevant to the review at hand\footnote{OpenAI's gpt-4o-mini model is instructed via a DSPY module for dynamic prompt generation in each run \parencite{khattab2023dspy}}. These sets of titles and abstracts are then given to ASReview along with the published systematic review to screen. See \ref{fig:sim-pipeline} for a schematic overview of the simulation pipeline.
+In the \textit{LLM condition}, the eligibility criteria of the published systematic reviews are provided to OpenAI's GPT-4o-mini model with the request to generate at least one set of titles and abstracts of a paper relevant to the review at hand\footnote{OpenAI's gpt-4o-mini model is instructed via a DSPY module for dynamic prompt generation in each run \parencite{khattab2023dspy}}. These sets of titles and abstracts are then given to ASReview along with the published systematic review to screen. 
 
-In the cold-start condition, no papers are provided prior to the start of screening. In the true-example condition, one relevant paper is sampled from the set of actually relevant papers in the systematic review (with replacement between runs). In the criteria-only condition, the eligibility criteria criteria of the systematic review function directly as an example of an abstract of a relevant paper with which to initialise the LLM, rather than using the LLM to generate an example.
+In the \textit{cold-start condition}, no papers are provided to ASReview prior to the start of screening. In the \textit{true-example condition}, one relevant paper is sampled from the set of papers labeled as relevant to the systematic review at hand (with replacement between runs) and provided to ASReview before screening. In the \textit{criteria-only condition}, the eligibility criteria of the systematic review function directly as an example of an abstract of a relevant paper with which to initialise ASReview, rather than using the LLM to generate an example.
 
 Finally, the eligibility criteria of the systematic reviews are manually manipulated in several ways to investigate whether this affects starting performance. Specifically, the alterations made are: the presence of exclusion criteria, expansion of abbreviations, and expansion of generic terms using MeSH\footnote{For example, "rodents" may be expanded to include hyponyms such as "mice" and "rats", and "Wilson's disease" to include synonyms such as "Progressive Lenticular Degeneration"}. 
 
+The total number of simulation runs is 4 (conditions) x 23 (systematic reviews) x 2 (manipulated vs. unmanipulated eligibility criteria) = 184 runs. FIX!!!
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=1\textwidth]{simulation_setup.png} % adjust path/width
-  \caption{Simulation pipeline (for more detailed schematic of workings within ASReview see \parencite{asreviewvs2jonathan})}
-  \label{fig:sim-pipeline}
-\end{figure}
+
+% \begin{figure}[htbp]
+%   \centering
+%   \includegraphics[width=1\textwidth]{simulation_setup.png} % adjust path/width
+%   \caption{Simulation pipeline (for more detailed schematic of workings within ASReview see \parencite{asreviewvs2jonathan})}
+%   \label{fig:sim-pipeline}
+% \end{figure}
 
 
 \subsection{Analysis plan}
 
-Starting performance will be compared between the four conditions visually using a boxplot and statistically using a linear model with bootstrapped SEs. Starting performance is defined as the number of relevant papers successfully retrieved from among the first 100 papers screened. Some runs may have fewer than 100 screened papers because all relevant papers are retrieved and screening is stopped before the 100th screened paper. Thus, $X/n$, where $n \leq 100$. The model will include a dummy variable for dataset to account for the fact that some datasets may be easier to screen than others. To specifically address the two objectives of the study described above, three contrasts will be compared for statistical significance differences in starting performance: (1) LLM vs. cold-start, (2) criteria-only vs. cold-start, and (3) LLM vs. criteria-only. An additional analysis will be conducted to explore the impact of manually manipulating the eligibility criteria. 
+Starting performance will be compared between the four conditions visually using a boxplot and statistically using a linear model with bootstrapped SEs. Starting performance is defined as the number of relevant papers successfully retrieved from among the first 100 papers screened. Some runs may have fewer than 100 screened papers because all relevant papers are retrieved and screening is stopped before the 100th screened paper. Accordingly, the total number of papers screened will be included in the model to account for this. The model will also include a dummy variable for dataset to control for the fact that some datasets may be easier to screen than others. To specifically address the two objectives of the study described above, three contrasts will be compared for statistical significance differences in starting performance: (1) LLM vs. cold-start, (2) criteria-only vs. cold-start, and (3) LLM vs. criteria-only. An additional analysis will be conducted to explore the impact of manually manipulating the eligibility criteria. 
+
+%\clearpage
+
+
+\begin{figure}
+  \centering
+  \begin{subfigure}[b]{0.9\textwidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{../simulation_results/full_run_Appel_Brouwer/Appenzeller-Herzog_2019/aggregate_recall_plot.png}
+      \caption{Recall plot for the Appelneller-Herzog (2019) dataset}
+      \label{fig:full-recall-plot-appelneller-herzog}
+%\clearpage
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.9\textwidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{../simulation_results/full_run_Appel_Brouwer/Brouwer_2019/aggregate_recall_plot.png}
+      \caption{Recall plot for the Brouwer (2019) dataset}
+      \label{fig:full-recall-plot-brouwer}
+  \end{subfigure}
+  \caption{Aggregate recall plots for two datasets across all four conditions. The x-axis shows the number of papers screened (0--100) and the y-axis shows the number of relevant papers found. Each line shows one run of each condition.}
+  \label{fig:full-aggregate-recall-plots}
+\end{figure}
+\subsection{Comparing starting performance: recall curves for each condition}
+\label{sec:full-recall-curves-for-each-condition}
+
+
+
+
+
+
 
 \section{Results}
 
-\subsection{Zoomed in recall plot}
+\subsection{Assessing starting performance: recall curves}
+
+A recall curve is a plot that shows the number of relevant papers retrieved (y-axis) as a function of the number of papers screened (x-axis). The recall curve can be interpreted as follows: the steeper the curve, the better the starting performance, since more relevant papers are retrieved with fewer papers screened. A flat curve indicates poor starting performance, as it suggests that no relevant papers are being retrieved even after screening many papers. Since the focus of this study is on starting performance, which is defined as the number of relevant papers successfully retrieved from among the first 100 papers screened, only the first 100 papers screened are shown in the recall plots in the following sections (i.e., the box in figure \ref{fig:zoomed-recall-plot}).
+
+%add the two recall plots stored in Report/simulation_results\full_run_Appel_Brouwer
 
 
-Explain what a recall curve is and how it can be interpreted, noting that in the following section only a subpart of the recall curve is shown (i.e., the first 100 screened papers) because we are interested in starting performance. 
+We are interested in comparing the starting performance of the four conditions. To that end, figure \ref{fig:full-aggregate-recall-plots} presents four recall plots, one for each condition. Each plot contains simulation runs for two datasets: Appelneller-Herzog (2019) and Brouwer (2019). These datasets and the specific plots below were selected because they represent the overall findings of the simulation study well, and thus serve as appropriate didactic examples to illustrate the differences in starting performance between the four conditions. 
 
-\begin{figure}[htbp]
+We can see that there are clear differences in starting performance between the cold start condition and the other three conditions. In the cold start condition, the recall curves are generally flat, indicating poor starting performance (mean number of papers found = 10). In the LLM and criteria-only conditions, the recall curves are generally steeper, indicating better starting performance (mean number of papers found = 22 and 21, respectively). Finally, in the true example condition, performance was generally on par with the LLM and criteria-only conditions (mean number of papers found = 17). However, we chose also show one run with poor starting performance to illustrate the fact that the example at hand may not be a representative example of the relevant papers in the systematic review, which may lead to suboptimal starting performance. 
+
+Indeed, there is considerable variability in starting performance across runs within all the conditions. As such, these plots should not be taken as representative of the performance of each condition in general. The following sections will present aggregate recall plots and boxplots of starting performance across all runs to provide a more comprehensive overview of the performance of each condition.
+
+
+
+% In the true-example condition, starting performance was on par with the LLM and criteria-only conditions on average. However, we decided to show the recall curves of one run with good starting performance and one run with poor starting performance to illustrate our expectation that the true example provided to ASReview may not be representative of the relevant papers in the systematic review, which may lead to suboptimal starting performance. In the cold start condition, one of the runs shows an entirely flat recall curve, indicating very poor starting performance, while the other run shows a half flat curve, indicating somewhat better starting performance. This reflects the expectation that starting performance in the cold start condition will be poor and highly variable across runs. In contrast, in both the LLM and criteria-only conditions, both runs show decent recall curves with similar performance, reflecting the expectation that starting performance in these conditions will be good and less variable across runs.
+
+
+
+\begin{figure}
   \centering
-  \includegraphics[width=0.9\textwidth]{../Report/images/zoomed_recall_plot.PNG}
-  \caption{Recall plot of a single run of the true-example condition for the Brouwer (2019) dataset}
-  \label{fig:zoomed-recall-plot}
+  \begin{subfigure}[b]{0.9\textwidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{results/Appelneller_aggregate_recall_plot.png}
+      \caption{Recall plot for the Appelneller-Herzog (2019) dataset}
+      \label{fig:recall-plot-appelneller-herzog}
+%\clearpage
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.9\textwidth}
+      \centering
+      \includegraphics[width=0.9\linewidth]{results/Brouwer_aggregate_recall_plot.png}
+      \caption{Recall plot for the Brouwer (2019) dataset}
+      \label{fig:recall-plot-brouwer}
+  \end{subfigure}
+  \caption{Aggregate recall plots for two datasets across all four conditions. The x-axis shows the number of papers screened (0--100) and the y-axis shows the number of relevant papers found. Each line shows one run of each condition.}
+  \label{fig:aggregate-recall-plots}
 \end{figure}
+\subsection{Comparing starting performance: recall curves for each condition}
+\label{sec:recall-curves-for-each-condition}
 
-
-\clearpage
-
-\subsection{Four recall plots of single runs of two datasets per condition (as didactic examples)}
-
-Contain actual data but have been cherry-picked to show the differences between conditions. The goal is to show the reader what the recall plots look like and how they differ between conditions.
 
 \begin{figure}[H]
      \centering
      \begin{subfigure}[b]{0.45\textwidth}
          \centering
-         \includegraphics[width=0.9\linewidth]{../simulation_results/run_01/Brouwer_2019/recalls_plots/recall_plot_run_1_IVs_1_100_0.0.png}
-         \caption{True examples condition (showing two quite differing recall curves)}
+         \includegraphics[width=0.9\linewidth]{../Report/results/individual_recall_plots/random/random_run_54_IVs_7_900_0.8_recall_plot.png}
+         \caption{Recall true examples condition}
          \label{fig:TrueExamples}
      \end{subfigure}
      \hfill
      \begin{subfigure}[b]{0.45\textwidth}
          \centering
-         \includegraphics[width=0.9\linewidth]{../simulation_results/run_01/Brouwer_2019/recalls_plots/recall_plot_run_2_IVs_1_100_0.4.png}
-         \caption{Cold start condition (showing one entirely flat recall curve and one half flat recall curve)}
+         \includegraphics[width=0.9\linewidth]{../Report/results/individual_recall_plots/no_initialisation/no_initialisation_run_43_IVs_4_900_0.0_recall_plot.png}
+         \caption{Recall cold start condition}
          \label{fig:ColdStart}
      \end{subfigure}
      \hfill
      \begin{subfigure}[b]{0.45\textwidth}
          \centering
-         \includegraphics[width=0.9\linewidth]{../simulation_results/run_01/Brouwer_2019/recalls_plots/recall_plot_run_3_IVs_1_100_0.8.png}
-         \caption{LLM condition (showing two decent recall curves, similar performance)}
+         \includegraphics[width=0.9\linewidth]{../Report/results/individual_recall_plots/llm/llm_run_7_IVs_1_900_0.0_recall_plot.png}
+         \caption{Recall LLM condition}
          \label{fig:LLM}
      \end{subfigure}
      \hfill
      \begin{subfigure}[b]{0.45\textwidth}
          \centering
-         \includegraphics[width=0.9\linewidth]{../simulation_results/run_01/Brouwer_2019/recalls_plots/recall_plot_run_4_IVs_1_500_0.0.png}
-         \caption{Criteria-only condition (showing two decent recall curves, similar performance)}
+         \includegraphics[width=0.9\linewidth]{../Report/results/individual_recall_plots/criteria/criteria_run_18_IVs_4_900_0.8_recall_plot.png}
+         \caption{Recall criteria-only condition}
          \label{fig:CriteriaOnly}
      \end{subfigure}
         \caption{Four recall plots of single runs of two datasets per condition (as didactic examples)}
@@ -151,9 +232,17 @@ The recall plots shown above are just examples of single runs. By simulating man
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.45\textwidth]{aggregate_recall_plot_walker.png}
-  \includegraphics[width=0.45\textwidth]{aggregate_recall_plot_moran.png}
-  \caption{The number of relevant records found per dataset}
+  \begin{subfigure}[b]{0.9\textwidth}
+      \centering
+      \includegraphics[width=0.9\textwidth]{../simulation_results/run_01/Appenzeller-Herzog_2019/aggregate_recall_plot.png}
+      \caption{Recall plot for the Appelneller-Herzog (2019) dataset}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.9\textwidth}
+      \centering
+      \includegraphics[width=0.9\textwidth]{../simulation_results/run_01/Brouwer_2019/aggregate_recall_plot.png}
+      \caption{Recall plot for the Brouwer (2019) dataset}
+  \end{subfigure}
   \label{fig:walker-2018}
 \end{figure}
 
@@ -161,7 +250,7 @@ The recall plots shown above are just examples of single runs. By simulating man
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.45\textwidth]{../Report/images/example_boxplot.png}
+  \includegraphics[width=0.9\textwidth]{../Report/images/example_boxplot.png}
   \caption{Example boxplot}
   \label{fig:boxplots-starting-performance}
 \end{figure}
@@ -182,10 +271,15 @@ The conclusion is that the cold start problem can be overcome by using the eligi
 
 \section{Discussion}
 
+A limitating factor in the practical application of AI-assisted systematic reviews is the cold start problem. That is, the inability of the AI-models in question to prioritize relevant papers for screening when it has yet to be trained on any examples of relevant papers limits the starting performance of AI-assisted systematic reviews in situations where no prior examples of relevant papers are available. This is especially relevant to crisis situations such as COVID-19, where there may not be relevant prior literature and timely evidence synthesis is crucial.
+
+
+
+
 \begin{enumerate}
   \item A limitating factor in the application of AI-assisted systematic reviews is the cold start problem. This is especially relevant to crisis situations such as COVID-19, where there may not be relevant prior literature and timely evidence synthesis is crucial.
   \item Prior research has shown that the cold start problem can be overcome by providing as little as one true pair example of a relevant paper and an irrelevant paper to the active learning model before screening begins \parencite{ferdinands2023performance,teijema2025large}. However, in some cases, there may be no prior examples of relevant papers available to initialize the model with. Moreover, the true examples a user has available may not be representative of the relevant papers in the systematic review, which may lead to suboptimal starting performance (i.e., bias / anchor effect -- ask Sixu).
-  \item Currently, the cold start problem is typically addressed by consulting a domain expert to provide true examples of relevant papers to initialize the model with. However, this may not always be feasible, especially in crisis situations where timely evidence synthesis is crucial. (ask Ula -- EKE citations).
+  \item Currently, the cold start problem is typically addressed by consulting a domain expert to provide true examples of relevant papers to initialize the model with \parencite{mikkola2024prior}. 
   \item Some limitations of the current study include:
     \begin{enumerate}
         \item Only a limited number of historical datasets were used. SYNERGY 2.0 coming soon!

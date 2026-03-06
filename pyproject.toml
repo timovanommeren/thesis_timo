@@ -3,8 +3,8 @@
 [tool.jumpstart]
 
 # ---- global ----
-n_simulations = 5
-stop_at_n = 100   # use -1 for "run to completion"
+n_simulations = 1
+stop_at_n = -1   # use -1 for "run to completion"
 
 # ---- independent variables (grids) ----
 n_abstracts = [4] #[1, 4, 7]
@@ -12,8 +12,8 @@ length_abstracts = [500] #[100, 500, 900]
 llm_temperature = [0.4] #[0.0, 0.4, 0.8]
 
 # ---- LLM stimulus ----
-stimuli_for_llm = ["Title", "Original", "Abbreviations", "Inclusion_only", "Expanded_terms"]
+stimuli_for_llm = ["Original"] #["Title", "Original", "Abbreviations", "Inclusion_only", "Expanded_terms"]
 
 
 # ---- names of datasets to use ----
-subset_datasets = ['Appenzeller-Herzog_2019','Bos_2018', 'Brouwer_2019', 'Chou_2003', 'Donners_2021', 'Hall_2012', 'Leenaars_2019', 'Leenaars_2020', 'Meijboom_2021', 'Menon_2022', 'Muthu_2021', 'Nelson_2002'] #Set to None is no subset is made
+subset_datasets = ['Appenzeller-Herzog_2019', 'Brouwer_2019'] #['Appenzeller-Herzog_2019','Bos_2018', 'Brouwer_2019', 'Chou_2003', 'Donners_2021', 'Hall_2012', 'Leenaars_2019', 'Leenaars_2020', 'Meijboom_2021', 'Menon_2022', 'Muthu_2021', 'Nelson_2002'] #Set to None is no subset is made
