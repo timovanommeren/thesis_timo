@@ -24,6 +24,7 @@ simulation_results/*
 
 # remove all files in Report/ except the files and folders listed below
 Report/*
+Report/results/
 
 # latex files to keep
 !Report/main.tex
@@ -39,7 +40,6 @@ Report/*
 
 # folders to keep
 !Report/vector_space/
-!Report/results/
 !Report/images/
 
 # Rstudio files

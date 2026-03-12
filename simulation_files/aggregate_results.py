@@ -88,17 +88,18 @@ def aggregate_recall_plots(datasets, out_dir: Path, x_max: int = None) -> None:
     plt.figure(figsize=(10, 6))
     x_axis = range(1, n_points + 1)
 
-    plt.plot(x_axis, agg_random['Cumulative Sum'], label='True Example Condition', color='#2ab07f')
-    plt.fill_between(x_axis, agg_random['Cumulative Sum'] - agg_random['SE'], agg_random['Cumulative Sum'] + agg_random['SE'], color='#2ab07f', alpha=0.3)
+    # Wong colorblind-safe palette
+    plt.plot(x_axis, agg_random['Cumulative Sum'], label='True Example Condition', color='#009E73')
+    plt.fill_between(x_axis, agg_random['Cumulative Sum'] - agg_random['SE'], agg_random['Cumulative Sum'] + agg_random['SE'], color='#009E73', alpha=0.3)
 
-    plt.plot(x_axis, agg_llm['Cumulative Sum'], label='LLM Condition', color='#482475')
-    plt.fill_between(x_axis, agg_llm['Cumulative Sum'] - agg_llm['SE'], agg_llm['Cumulative Sum'] + agg_llm['SE'], color='#482475', alpha=0.3)
+    plt.plot(x_axis, agg_llm['Cumulative Sum'], label='LLM Condition', color='#0072B2')
+    plt.fill_between(x_axis, agg_llm['Cumulative Sum'] - agg_llm['SE'], agg_llm['Cumulative Sum'] + agg_llm['SE'], color='#0072B2', alpha=0.3)
 
-    plt.plot(x_axis, agg_criteria['Cumulative Sum'], label='Inclusion Criteria Condition', color='#2d708e')
-    plt.fill_between(x_axis, agg_criteria['Cumulative Sum'] - agg_criteria['SE'], agg_criteria['Cumulative Sum'] + agg_criteria['SE'], color='#2d708e', alpha=0.3)
+    plt.plot(x_axis, agg_criteria['Cumulative Sum'], label='Inclusion Criteria Condition', color='#D55E00')
+    plt.fill_between(x_axis, agg_criteria['Cumulative Sum'] - agg_criteria['SE'], agg_criteria['Cumulative Sum'] + agg_criteria['SE'], color='#D55E00', alpha=0.3)
 
-    plt.plot(x_axis, agg_no_initialisation['Cumulative Sum'], label='Cold Start Condition', color='#bddf26')
-    plt.fill_between(x_axis, agg_no_initialisation['Cumulative Sum'] - agg_no_initialisation['SE'], agg_no_initialisation['Cumulative Sum'] + agg_no_initialisation['SE'], color='#bddf26', alpha=0.3)
+    plt.plot(x_axis, agg_no_initialisation['Cumulative Sum'], label='Cold Start Condition', color='#E69F00')
+    plt.fill_between(x_axis, agg_no_initialisation['Cumulative Sum'] - agg_no_initialisation['SE'], agg_no_initialisation['Cumulative Sum'] + agg_no_initialisation['SE'], color='#E69F00', alpha=0.3)
 
     # Step diagonal: expected relevant found under pure random screening
     n_relevant = int(datasets[name]['label_included'].sum()) if isinstance(datasets, dict) else None

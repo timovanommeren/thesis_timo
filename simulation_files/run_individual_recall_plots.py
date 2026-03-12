@@ -20,11 +20,12 @@ def individual_recall_plots(data_dir: Path, out_dir: Path, datasets: list[str] =
         List of dataset folder names to include. If None, all datasets are used.
     """
 
+    # Wong colorblind-safe palette
     condition_colors = {
-        'random': '#2ab07f',
-        'llm': '#482475',
-        'criteria': '#2d708e',
-        'no_initialisation': '#bddf26',
+        'random': '#009E73',
+        'llm': '#0072B2',
+        'criteria': '#D55E00',
+        'no_initialisation': '#E69F00',
     }
 
     # line styles to distinguish datasets within the same condition
@@ -91,11 +92,13 @@ def individual_recall_plots(data_dir: Path, out_dir: Path, datasets: list[str] =
 
         plt.xlabel('Number of Records Screened', fontsize=16)
         plt.ylabel('Number of Relevant Records Found', fontsize=16)
-        plt.ylim(0, 40)
+        plt.ylim(-1, 40)
         title = condition_titles.get(condition, condition)
         plt.title(title, fontweight='bold', fontsize=16)
         plt.legend(fontsize=12)
-        plt.grid(True)
+        plt.grid(False)
+        plt.gca().set_facecolor('white')
+        plt.gcf().set_facecolor('white')
         plt.tight_layout()
 
         cond_folder = out_dir / condition
