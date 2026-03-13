@@ -6,7 +6,7 @@ import time
 
 
 from simulation import run_simulation
-from aggregate_results import aggregate_recall_plots
+from recall_plots import recall_plot
 from config import load_pyproject_config
 
 app = typer.Typer()
@@ -157,9 +157,21 @@ def run(
 
     ### RETURN AGGREGATE RECALL PLOTS ##########################################################################
     
-    aggregate_recall_plots(
+    # aggregate_recall_plots(
+    #     datasets=datasets,
+    #     out_dir=out_dir,
+    # )
+    
+        # Figure 4
+    recall_plot(
+        data_dir=out_dir,
+        out_dir=Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results\aggregate_recall_plots'),
         datasets=datasets,
-        out_dir=out_dir,
+        conditions=None,
+        x_max=100,
+        show_diagonal=False,
+        x_scale='count',
+        show_average=True,
     )
     
     ############################################################################################################

@@ -1,0 +1,141 @@
+---
+title: "estimating group means with bootstrapped"
+author: "Timo van Ommeren"
+date: "2026-03-11"
+output: html_document
+---
+
+```{r}
+library(here)
+here::i_am("Analysis/analysis/main_analysis.Rmd")
+
+source(here("Analysis/R/01_load_data.R"))
+source(here("Analysis/R/02_prepare_data.R"))
+source(here("Analysis/R/03_descriptives.R"))
+# source(here("R/04_models.R"))
+# source(here("R/05_plots.R"))
+
+```
+
+# Loading and transforming data
+
+```{r load and transform data}
+
+# import simulation results and metadata (specify paths relative to project root)
+raw <- load_simulation_data(data = "simulation_results/run_01/all_simulation_results.csv", 
+                             metadata = "Analysis/percentage_relevant.csv")
+
+# (1) transform simulation data to wide
+# (2) add the number of records, percentage of relevant records and dataset topic(s) from metadata to simulation data (these will serve as group-level predictors in multilevel model)
+# (4) rescale n_abstracts (divide by 100) and length_abstracts (divide by 1000)
+# (5) truncate topic names to first topic only
+processed <- prepare_data(raw$simulation, raw$meta)
+
+
+
+processed$simulation <- processed$simulation %>%
+  filter(run <= 270)
+
+processed$simulation <- processed$simulation %>%
+  filter(dataset != "Moran_2021")
+
+# two-part coding of llm-specific predictors (implicit dummy variable creation through zero imputation, see reproduction_Dziak_Henry.Rmd for verification of method)
+processed$simulation <- two_part_coding(processed$simulation)
+
+# assign to variables for easier access
+simulation_long <- raw$simulation
+simulation      <- processed$simulation
+metadata        <- processed$meta
+
+```
+
+# Preparation for analysis
+
+```{r set colours of plots}
+
+cud_cols <- c(
+  llm               = "#009E73",  # bluish green
+  criteria          = "#E69F00",  # orange
+  random            = "#0072B2",  # blue
+  no_initialisation = "#D55E00"   # vermillion
+)
+
+
+vir_cols <- c(
+    llm=                "#482475",
+    criteria=           "#2d708e",
+    random=             "#2ab07f",
+    no_initialisation=  "#bddf26"
+)
+
+# vir_cols <- setNames(
+#   viridisLite::viridis(4, option = "viridis", begin = 0.10, end = 0.90),
+#   c("llm", "criteria", "random", "no_initialisation")
+# )
+
+#define colours so that llm is green, criteria is yellow, no initialisation is red and random is blue
+
+cols <- c(
+  "llm" = "green", 
+  "criteria" = "yellow", 
+  "random" = "blue", 
+  "no_initialisation" = "red"
+)
+
+```
+
+
+## Descriptives
+
+### 
+
+```{r descriptive table}
+descriptive_tables(simulation)
+
+#export descriptive statistics table to latex format text file
+writeLines(capture.output(descriptive_tables(simulation)), here::here("Report/results/descriptives_table.tex"))
+```
+
+
+### Descriptive plots
+
+```{r barchart}
+descriptive_barchart(simulation, metadata, papers_found, y_axis = 100, colours = vir_cols)
+```
+
+Conclusion from plot: dataset should be used as control variable.
+
+```{r}
+descriptive_histogram(simulation, colours = vir_cols)
+```
+Conclusion from plot: if starting performance is modelled as a binomial variance, we may expect overdispersion (i.e., a larger variance than would be expected from the model-derived variance, given the mean-variance relationship of the binomial). Histograms per dataset show that even when controlling for dataset this is the case. note for example the spike at zero.
+
+```{r homogenity test}
+
+check_homogeneity(simulation, colours = vir_cols)
+
+#return the variance of papers found by condition
+simulation %>% group_by(condition) %>%
+  summarise(
+    variance = var(papers_found),
+    mean = mean(papers_found)
+  )
+
+```
+
+
+```{r}
+simulation <- simulation %>% mutate(condition = relevel(factor(condition), ref = "llm"))
+```
+
+
+## Model
+
+```{r}
+OLS_model <- lm(papers_found ~ condition - 1 + dataset + n_trials, 
+                data = simulation)
+
+summary(OLS_model)
+```
+
+

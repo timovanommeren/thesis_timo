@@ -46,7 +46,7 @@ def aggregate_recall_plots(datasets, out_dir: Path, x_max: int = None) -> None:
     def _agg_cumsums(cumsums_list):
         df = pd.concat(cumsums_list, axis=1)
         df = df.ffill(axis=0)   # flat line for rows beyond each run's natural end
-        return pd.DataFrame({'Cumulative Sum': df.mean(axis=1), 'SE': df.sem(axis=1)})
+        return df.mean(axis=1)
 
     random_cumsums = [df.loc[df["querier"].notna(), "label"].reset_index(drop=True).cumsum() for df in random_runs]
     agg_random = _agg_cumsums(random_cumsums)
@@ -70,36 +70,46 @@ def aggregate_recall_plots(datasets, out_dir: Path, x_max: int = None) -> None:
     if x_max is not None:
         n_points = min(n_points, x_max)
 
-    def _fit_to_length(agg_df, target_len):
-        if len(agg_df) > target_len:
-            return agg_df.iloc[:target_len].reset_index(drop=True)
-        n_pad = target_len - len(agg_df)
+    def _fit_series_to_length(series, target_len):
+        if len(series) > target_len:
+            return series.iloc[:target_len].reset_index(drop=True)
+        n_pad = target_len - len(series)
         if n_pad == 0:
-            return agg_df
-        last_mean = agg_df['Cumulative Sum'].iloc[-1]
-        padding = pd.DataFrame({'Cumulative Sum': [last_mean] * n_pad, 'SE': [0.0] * n_pad})
-        return pd.concat([agg_df, padding], ignore_index=True)
+            return series.reset_index(drop=True)
+        padding = pd.Series([series.iloc[-1]] * n_pad)
+        return pd.concat([series.reset_index(drop=True), padding], ignore_index=True)
 
-    agg_random            = _fit_to_length(agg_random,            n_points)
-    agg_llm               = _fit_to_length(agg_llm,               n_points)
-    agg_criteria          = _fit_to_length(agg_criteria,          n_points)
-    agg_no_initialisation = _fit_to_length(agg_no_initialisation, n_points)
+    def _fit_cumsums_to_length(cumsums_list, target_len):
+        return [_fit_series_to_length(s, target_len) for s in cumsums_list]
+
+    agg_random            = _fit_series_to_length(agg_random,            n_points)
+    agg_llm               = _fit_series_to_length(agg_llm,               n_points)
+    agg_criteria          = _fit_series_to_length(agg_criteria,          n_points)
+    agg_no_initialisation = _fit_series_to_length(agg_no_initialisation, n_points)
+
+    random_cumsums            = _fit_cumsums_to_length(random_cumsums,            n_points)
+    llm_cumsums               = _fit_cumsums_to_length(llm_cumsums,               n_points)
+    criteria_cumsums          = _fit_cumsums_to_length(criteria_cumsums,          n_points)
+    no_initialisation_cumsums = _fit_cumsums_to_length(no_initialisation_cumsums, n_points)
 
     plt.figure(figsize=(10, 6))
     x_axis = range(1, n_points + 1)
 
     # Wong colorblind-safe palette
-    plt.plot(x_axis, agg_random['Cumulative Sum'], label='True Example Condition', color='#009E73')
-    plt.fill_between(x_axis, agg_random['Cumulative Sum'] - agg_random['SE'], agg_random['Cumulative Sum'] + agg_random['SE'], color='#009E73', alpha=0.3)
+    # Plot individual runs with low alpha, then bold average on top
+    for s in random_cumsums:
+        plt.plot(x_axis, s, color='#009E73', alpha=0.1, linewidth=0.8)
+    for s in llm_cumsums:
+        plt.plot(x_axis, s, color='#0072B2', alpha=0.1, linewidth=0.8)
+    for s in criteria_cumsums:
+        plt.plot(x_axis, s, color='#D55E00', alpha=0.1, linewidth=0.8)
+    for s in no_initialisation_cumsums:
+        plt.plot(x_axis, s, color='#E69F00', alpha=0.1, linewidth=0.8)
 
-    plt.plot(x_axis, agg_llm['Cumulative Sum'], label='LLM Condition', color='#0072B2')
-    plt.fill_between(x_axis, agg_llm['Cumulative Sum'] - agg_llm['SE'], agg_llm['Cumulative Sum'] + agg_llm['SE'], color='#0072B2', alpha=0.3)
-
-    plt.plot(x_axis, agg_criteria['Cumulative Sum'], label='Inclusion Criteria Condition', color='#D55E00')
-    plt.fill_between(x_axis, agg_criteria['Cumulative Sum'] - agg_criteria['SE'], agg_criteria['Cumulative Sum'] + agg_criteria['SE'], color='#D55E00', alpha=0.3)
-
-    plt.plot(x_axis, agg_no_initialisation['Cumulative Sum'], label='Cold Start Condition', color='#E69F00')
-    plt.fill_between(x_axis, agg_no_initialisation['Cumulative Sum'] - agg_no_initialisation['SE'], agg_no_initialisation['Cumulative Sum'] + agg_no_initialisation['SE'], color='#E69F00', alpha=0.3)
+    plt.plot(x_axis, agg_random, label='True Example Condition', color='#009E73', linewidth=2.5, linestyle='--')
+    plt.plot(x_axis, agg_llm, label='LLM Condition', color='#0072B2', linewidth=2.5, linestyle='--')
+    plt.plot(x_axis, agg_criteria, label='Inclusion Criteria Condition', color='#D55E00', linewidth=2.5, linestyle='--')
+    plt.plot(x_axis, agg_no_initialisation, label='Cold Start Condition', color='#E69F00', linewidth=2.5, linestyle='--')
 
     # Step diagonal: expected relevant found under pure random screening
     n_relevant = int(datasets[name]['label_included'].sum()) if isinstance(datasets, dict) else None
@@ -135,7 +145,8 @@ print(list(datasets.keys()))
 
 aggregate_recall_plots(
     datasets=datasets,
-    out_dir=out_dir
+    out_dir=out_dir,
+    x_max=None
 )
 
 print("Aggregation complete.")
