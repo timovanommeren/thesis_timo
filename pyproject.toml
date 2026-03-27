@@ -7,7 +7,7 @@ n_simulations = 1
 stop_at_n = -1   # use -1 for "run to completion"
 
 # ---- independent variables (grids) ----
-n_abstracts = [4] #[1, 4, 7]
+n_abstracts = [1] #[1, 4, 7]
 length_abstracts = [500] #[100, 500, 900]
 llm_temperature = [0.4] #[0.0, 0.4, 0.8]
 
@@ -16,4 +16,7 @@ stimuli_for_llm = ["Original"] #["Title", "Original", "Abbreviations", "Inclusio
 
 
 # ---- names of datasets to use ----
-subset_datasets = ['Appenzeller-Herzog_2019', 'Brouwer_2019'] #['Appenzeller-Herzog_2019','Bos_2018', 'Brouwer_2019', 'Chou_2003', 'Donners_2021', 'Hall_2012', 'Leenaars_2019', 'Leenaars_2020', 'Meijboom_2021', 'Menon_2022', 'Muthu_2021', 'Nelson_2002'] #Set to None is no subset is made
+subset_datasets = ['Appenzeller-Herzog_2019', 'Bos_2018', 'Brouwer_2019', 'Chou_2003', 'Donners_2021', 'Hall_2012', 'Leenaars_2019', 'Leenaars_2020', 'Meijboom_2021', 'Menon_2022', 'Muthu_2021', 'Nelson_2002', 'Oud_2018', 'Radjenovic_2013', 'Sep_2021', 'Smid_2020', 'Walker_2018', 'Wassenaar_2017', 'Wolters_2018', 'van_Dis_2020', 'van_de_Schoot_2018', 'van_der_Valk_2021', 'van_der_Waal_2022']
+
+# ---- conditions to run ----
+condition = ['random', 'no_initialisation'] #['random', 'llm', 'criteria', 'no_initialisation'] # Set to all four to run all conditions

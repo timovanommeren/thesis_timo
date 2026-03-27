@@ -4,15 +4,12 @@
 
 Articles/
 Thomas_EUDA/
-asreview-makita/
 Synergy/
 simulations/__pycache__/
 simulations/output/
 simulations/output_study_100_runs_tdd/
 notebooks/
 Mini_thesis.pdf
-makita_simulations/
-Inclusion_criteria/
 
 # main statistical analysis only
 Analysis/analysis/*
@@ -24,7 +21,7 @@ simulation_results/*
 
 # remove all files in Report/ except the files and folders listed below
 Report/*
-Report/results/
+Report/results
 
 # latex files to keep
 !Report/main.tex

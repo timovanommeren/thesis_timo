@@ -45,6 +45,7 @@ def run(
     # Parameters for running simulations
     n_simulations = config.get("n_simulations")
     stop_at_n = config.get("stop_at_n") # set to -1 to stop when all relevant records are found
+    condition = config.get("condition") # set to None to run all four conditions
     
     # Parameters for simulation (IVs)
     n_abstracts = config.get("n_abstracts")
@@ -107,7 +108,7 @@ def run(
     ))
     
     print(f"Running {n_simulations} simulations for {len(iv_combinations)} combinations of LLM-specific variables and {len(stimuli_for_llm)} stimuli for {len(datasets)} datasets for all four conditions")
-    print(f"Total simulations: {n_simulations * len(iv_combinations) * len(stimuli_for_llm) * len(datasets) * 4}")
+    print(f"Total simulations: {n_simulations * len(iv_combinations) * len(stimuli_for_llm) * len(datasets) * len(condition)}")
     
     
     total_runs = n_simulations * len(stimuli_for_llm) * len(iv_combinations)
@@ -132,6 +133,7 @@ def run(
                 run_simulation(
                     datasets=datasets,
                     criterium=stimulus_for_llm,
+                    condition=condition,
                     out_dir=out_dir,
                     metadata=synergy_metadata,
                     n_abstracts=n_abs,
@@ -162,17 +164,17 @@ def run(
     #     out_dir=out_dir,
     # )
     
-        # Figure 4
-    recall_plot(
-        data_dir=out_dir,
-        out_dir=Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results\aggregate_recall_plots'),
-        datasets=datasets,
-        conditions=None,
-        x_max=100,
-        show_diagonal=False,
-        x_scale='count',
-        show_average=True,
-    )
+    #     # Figure 4
+    # recall_plot(
+    #     data_dir=out_dir,
+    #     out_dir=Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results\aggregate_recall_plots'),
+    #     datasets=datasets,
+    #     conditions=None,
+    #     x_max=100,
+    #     show_diagonal=False,
+    #     x_scale='count',
+    #     show_average=True,
+    # )
     
     ############################################################################################################
 

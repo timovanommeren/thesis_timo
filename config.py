@@ -9,7 +9,8 @@ DEFAULTS = {
     "llm_temperature": [0.0, 0.4, 0.8],
     "wss_threshold": 0.95,
     "stimulus_for_llm": ["inclusion_criteria"],
-    "subset_datasets": None
+    "subset_datasets": None,
+    "condition": None
 }
 
 def load_pyproject_config(pyproject_path: Path = Path("pyproject.toml")) -> dict:

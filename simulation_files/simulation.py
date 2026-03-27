@@ -15,27 +15,35 @@ from metrics import evaluate_simulation
 
 
 
-def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, run: int, stop_at_n: int) -> dict:
+def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.ExcelFile, n_abstracts: int, length_abstracts: int, llm_temperature: float, run: int, stop_at_n: int, condition: list[str] = None) -> dict:
+
+    ALL_CONDITIONS = ['random', 'llm', 'criteria', 'no_initialisation']
+    if condition is None:
+        condition = ALL_CONDITIONS
 
     for dataset_names in datasets.keys():
-        
+
         ### PREPARE SIMULATION DATA ###################################################################################
-        
+
         # Clear dictionary for each dataset
         simulation_results = {}
-        
-        # Generate LLM priors and add them to dataset
-        print(f"Generating LLM priors for dataset: {dataset_names}")
-        dataset_llm, dataset_criteria = prepare_datasets(datasets[dataset_names], name=dataset_names, criterium=criterium, out_dir=out_dir, metadata=metadata, n_abstracts=n_abstracts, length_abstracts=length_abstracts, llm_temperature=llm_temperature, run=run) # Generate abstracts and add them to datasets
 
-        # Sample priors for random initialization condition
-        prior_idx = sample_priors(datasets[dataset_names], seed = run) 
+        # Generate LLM priors and add them to dataset (only if needed)
+        dataset_llm, dataset_criteria = None, None
+        if 'llm' in condition or 'criteria' in condition:
+            print(f"Generating LLM priors for dataset: {dataset_names}")
+            dataset_llm, dataset_criteria = prepare_datasets(datasets[dataset_names], name=dataset_names, criterium=criterium, out_dir=out_dir, metadata=metadata, n_abstracts=n_abstracts, length_abstracts=length_abstracts, llm_temperature=llm_temperature, run=run) # Generate abstracts and add them to datasets
+
+        # Sample priors for random initialization condition (only if needed)
+        prior_idx = None
+        if 'random' in condition:
+            prior_idx = sample_priors(datasets[dataset_names], seed = run)
 
         ###############################################################################################################
-        
-        
-        
-        
+
+
+
+
 
         ### SET UP ACTIVE LEARNING CYCLES #############################################################################
 
@@ -46,88 +54,85 @@ def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.E
         "min_df": 1,
         }
 
+        n_labeled_stop = stop_at_n if stop_at_n == -1 else stop_at_n + (len(dataset_criteria['prior_idx']) if dataset_criteria is not None else 0)
+
         alc = [
             asreview.ActiveLearningCycle(
-                querier=Random(random_state=run), 
+                querier=Random(random_state=run),
                 stopper=IsFittable()),
             asreview.ActiveLearningCycle(
                 querier=Max(),
                 classifier=SVM(C=0.11, loss="squared_hinge", random_state=run),
                 balancer=Balanced(ratio=9.8),
                 feature_extractor=Tfidf(**tfidf_kwargs),
-                stopper=NLabeled(stop_at_n if stop_at_n == -1 else stop_at_n + len(dataset_criteria['prior_idx']))
+                stopper=NLabeled(n_labeled_stop)
             )
         ]
-        
+
         ###############################################################################################################
-        
-        
-        
-        
-        
-        
+
+
+
+
+
+
         ### RUN SIMULATION ############################################################################################
 
         print(f"Running simulations for dataset: {dataset_names}")
-        
+
+        simulate_llm, simulate_criteria, simulate_no_initialisation, simulate_random = None, None, None, None
+
         # Run simulation with LLM priors
-        simulate_llm = asreview.Simulate(X=dataset_llm['dataset'], labels=dataset_llm['dataset']["label_included"], cycles=alc)
-        simulate_llm.label(dataset_llm['prior_idx'])
-        simulate_llm.review()
+        if 'llm' in condition:
+            simulate_llm = asreview.Simulate(X=dataset_llm['dataset'], labels=dataset_llm['dataset']["label_included"], cycles=alc)
+            simulate_llm.label(dataset_llm['prior_idx'])
+            simulate_llm.review()
 
         # Run simulation with criteria as priors
-        simulate_criteria = asreview.Simulate(X=dataset_criteria['dataset'], labels=dataset_criteria['dataset']["label_included"], cycles=alc)
-        simulate_criteria.label(dataset_criteria['prior_idx'])
-        simulate_criteria.review()
+        if 'criteria' in condition:
+            simulate_criteria = asreview.Simulate(X=dataset_criteria['dataset'], labels=dataset_criteria['dataset']["label_included"], cycles=alc)
+            simulate_criteria.label(dataset_criteria['prior_idx'])
+            simulate_criteria.review()
 
         # Run simulation without priors (random start)
-        simulate_no_initialisation = asreview.Simulate(X=datasets[dataset_names], labels=datasets[dataset_names]["label_included"], cycles=alc)
-        simulate_no_initialisation.review()
-        
+        if 'no_initialisation' in condition:
+            simulate_no_initialisation = asreview.Simulate(X=datasets[dataset_names], labels=datasets[dataset_names]["label_included"], cycles=alc)
+            simulate_no_initialisation.review()
+
         # Run simulation with random initialization (one relevant and one irrelevant prior)
-        simulate_random = asreview.Simulate(X=datasets[dataset_names], labels=datasets[dataset_names]["label_included"], cycles=alc)
-        simulate_random.label([prior_idx])
-        simulate_random.review()
-        
+        if 'random' in condition:
+            simulate_random = asreview.Simulate(X=datasets[dataset_names], labels=datasets[dataset_names]["label_included"], cycles=alc)
+            simulate_random.label([prior_idx])
+            simulate_random.review()
+
         ###############################################################################################################
-    
-    
-    
-        
-        
+
+
+
+
+
         ### SAVE SIMULATION RESULTS ####################################################################################
-        
+
         # Create raw_simulations directory if it doesn't exist
         raw_sim_dir = out_dir / dataset_names / 'raw_simulations'
         raw_sim_dir.mkdir(parents=True, exist_ok=True)
-        
-        #save all results to csv files
-        for sim, condition in zip([simulate_random, simulate_llm, simulate_criteria, simulate_no_initialisation], ['random', 'llm', 'criteria', 'no_initialisation']):
-            sim._results.to_csv(raw_sim_dir / f'{condition}_run_{run}_IVs_{criterium}_{n_abstracts}_{length_abstracts}_{llm_temperature}.csv', index=False)
-        
-        # This line drops priors. To access the dataframe before this, just use simulate._results
-        df_results_random = simulate_random._results.dropna(axis=0, subset="training_set")
-        df_results_llm = simulate_llm._results.dropna(axis=0, subset="training_set")
-        df_results_criteria = simulate_criteria._results.dropna(axis=0, subset="training_set")
-        df_results_no_initialisation = simulate_no_initialisation._results.dropna(axis=0, subset="training_set")
 
-        simulation_results[dataset_names] = {
-            'random': df_results_random,
-            'llm': df_results_llm,
-            'criteria': df_results_criteria,
-            'no_initialisation': df_results_no_initialisation
-        }
-        
+        # Save results to csv files for conditions that were run
+        for sim, cond in zip([simulate_random, simulate_llm, simulate_criteria, simulate_no_initialisation], ['random', 'llm', 'criteria', 'no_initialisation']):
+            if sim is not None:
+                sim._results.to_csv(raw_sim_dir / f'{cond}_run_{run}_IVs_{criterium}_{n_abstracts}_{length_abstracts}_{llm_temperature}.csv', index=False)
+
+        # This line drops priors. To access the dataframe before this, just use simulate._results
+        simulation_results[dataset_names] = {}
+        for sim, cond in zip([simulate_random, simulate_llm, simulate_criteria, simulate_no_initialisation], ['random', 'llm', 'criteria', 'no_initialisation']):
+            if sim is not None:
+                simulation_results[dataset_names][cond] = sim._results.dropna(axis=0, subset="training_set")
+
         if stop_at_n == -1:
             total_records = len(datasets[dataset_names])
-            papers_screened = {cond: total_records for cond in ['random', 'llm', 'criteria', 'no_initialisation']}
+            papers_screened = {cond: total_records for cond in condition}
         else:
-            papers_screened = {
-                'random': len(df_results_random),
-                'llm': len(df_results_llm),
-                'criteria': len(df_results_criteria),
-                'no_initialisation': len(df_results_no_initialisation),
-            }
+            papers_screened = {cond: len(simulation_results[dataset_names][cond]) for cond in condition}
         
         #################################################################################################################
         
@@ -138,17 +143,14 @@ def run_simulation(datasets: dict, criterium: str, out_dir: Path, metadata: pd.E
         ### EVALUATE SIMULATION RUN #####################################################################################
         
         evaluate_simulation(simulation_results,
-                            datasets[dataset_names],
-                            dataset_llm,
-                            dataset_criteria,
-                            prior_idx,
                             criterium=criterium,
                             n_abstracts=n_abstracts,
                             length_abstracts=length_abstracts,
                             llm_temperature=llm_temperature,
                             papers_screened=papers_screened,
                             out_dir=out_dir,
-                            run=run)
+                            run=run,
+                            condition=condition)
 
         #################################################################################################################
         

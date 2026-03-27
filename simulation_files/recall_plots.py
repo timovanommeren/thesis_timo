@@ -18,10 +18,10 @@ _CONDITION_COLORS = {
 }
 
 _CONDITION_LABELS = {
-    'random':            'True Example',
+    'random':            'Actual paper',
     'llm':               'LLM',
-    'criteria':          'Inclusion Criteria',
-    'no_initialisation': 'Cold Start',
+    'criteria':          'Eligibility criteria',
+    'no_initialisation': 'Cold start',
 }
 
 ALL_CONDITIONS = ['random', 'llm', 'criteria', 'no_initialisation']
@@ -39,18 +39,30 @@ def _build_cumsum(labels: pd.Series, target_len: int) -> pd.Series:
     return labels.iloc[:target_len].cumsum().reset_index(drop=True)
 
 
-def _apply_formatting(ax, fig, x_scale: str, title: str, fontsize: int = 14) -> None:
-    xlabel = ('Proportion of Records Screened' if x_scale == 'proportion'
-              else 'Number of Records Screened')
+def _apply_formatting(ax, fig, x_scale: str, title: str, fontsize: int = 14,
+                      show_legend: bool = True) -> None:
+    xlabel = ('Proportion screened' if x_scale == 'proportion'
+              else 'Records screened')
     ax.set_xlabel(xlabel, fontsize=fontsize)
-    ax.set_ylabel('Number of Relevant Records Found', fontsize=fontsize)
-    ax.set_title(title, fontsize=fontsize)
-    ax.legend(fontsize=fontsize - 2)
+    ax.set_ylabel('Relevant records found', fontsize=fontsize)
+    ax.tick_params(labelsize=max(fontsize - 1, 6))
+    if title:
+        ax.set_title(title, fontsize=fontsize)
+    if show_legend:
+        ax.legend(
+            fontsize     = max(fontsize - 2, 6),
+            loc          = 'best',
+            framealpha   = 0.85,
+            handlelength = 1.5,
+            borderpad    = 0.3,
+            labelspacing = 0.2,
+        )
     ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
     ax.grid(False)
     ax.set_facecolor('white')
     fig.set_facecolor('white')
-    plt.tight_layout()
+    plt.tight_layout(pad=0.3)
 
 
 def _draw_diagonal(ax, nr: int, ds_size: int, x_scale: str, label: str,
@@ -78,6 +90,9 @@ def recall_plot(
     per_run: bool = False,
     figsize: tuple[float, float] = (10, 6),
     fontsize: int = 14,
+    show_legend: bool = True,
+    show_title: bool = True,
+    out_format: str = 'png',
 ) -> None:
     """Generic recall plot.
 
@@ -257,9 +272,9 @@ def recall_plot(
 
                 if show_average:
                     for s in series_list:
-                        ax.plot(x, s, color=color, alpha=0.1, linewidth=0.8)
+                        ax.plot(x, s, color=color, alpha=0.07, linewidth=0.5)
                     mean_curve = pd.concat(series_list, axis=1).ffill(axis=0).mean(axis=1)
-                    ax.plot(x, mean_curve, label=cond_label, color=color, linewidth=2.5, linestyle='--')
+                    ax.plot(x, mean_curve, label=cond_label, color=color, linewidth=2.0, linestyle='--')
                 else:
                     for i, s in enumerate(series_list):
                         ax.plot(x, s,
@@ -270,9 +285,11 @@ def recall_plot(
                 _draw_diagonal(ax, n_relevant[dataset], dataset_totals[dataset], x_scale,
                                label='Random screening (no AI)')
 
-            _apply_formatting(ax, fig, x_scale, title=f'recall | {dataset}', fontsize=fontsize)
-            out_path = out_dir / f'{out_name}_{dataset}.png'
-            fig.savefig(out_path)
+            title = dataset if show_title else ''
+            _apply_formatting(ax, fig, x_scale, title=title, fontsize=fontsize,
+                              show_legend=show_legend)
+            out_path = out_dir / f'{out_name}_{dataset}.{out_format}'
+            fig.savefig(out_path, bbox_inches='tight')
             plt.close(fig)
             print(f'Saved → {out_path}')
 
@@ -295,18 +312,21 @@ def recall_plot(
                 n         = len(s)
                 x = (pd.Series(range(1, n + 1)) / cond_size if x_scale == 'proportion'
                      else pd.Series(range(1, n + 1)))
-                ax.plot(x, s, label=cond_label, color=color, linewidth=2)
+                ax.plot(x, s, label=cond_label, color=color, linewidth=1.5)
 
             if show_diagonal and x_max is None and n_relevant.get(dataset, 0) > 0:
                 _draw_diagonal(ax, n_relevant[dataset], dataset_totals[dataset], x_scale,
                                label='Random screening (no AI)')
 
-            _apply_formatting(ax, fig, x_scale, title=f'recall | {dataset}', fontsize=fontsize)
+            _apply_formatting(ax, fig, x_scale,
+                              title=dataset if show_title else '',
+                              fontsize=fontsize,
+                              show_legend=show_legend)
 
             ds_folder = out_dir / 'individual_runs' / dataset
             ds_folder.mkdir(parents=True, exist_ok=True)
-            out_path = ds_folder / f'{out_name}_run_{run_params}.png'
-            fig.savefig(out_path)
+            out_path = ds_folder / f'{out_name}_run_{run_params}.{out_format}'
+            fig.savefig(out_path, bbox_inches='tight')
             plt.close(fig)
             print(f'Saved → {out_path}')
 
@@ -328,7 +348,7 @@ if __name__ == '__main__':
     #     source_dir=SOURCE_DIR,
     #     out_name='figure_1',
     #     datasets=APPEN_BROUWER,
-    #     conditions=['random'],
+    #     conditions=['random', 'no_initialisation'],
     #     x_max=None,
     #     show_diagonal=True,
     #     x_scale='count',
@@ -351,35 +371,43 @@ if __name__ == '__main__':
     #     fontsize=16,
     # )
 
-    # # Figure 3 – per-run plots: one plot per (condition × run), datasets overlaid
-    # #             saved under out_dir / individual_runs / {condition} /
-    # recall_plot(
-    #     data_dir=RUN_01_DIR,
-    #     out_dir=OUT_DIR / 'individual_runs',
-    #     source_dir=SOURCE_DIR,
-    #     datasets=APPEN_BROUWER,
-    #     out_name='figure_3',
-    #     conditions=None,
-    #     x_max=100,
-    #     show_diagonal=True,
-    #     x_scale='count',
-    #     per_run=True,
-    #     figsize=(6, 5),
-    #     fontsize=16,
-    # )
-
-    # Figure 4
+    # Figure 3 – per-run plots for cherry-picking: one PDF per (dataset × run)
+    #            saved under out_dir / individual_runs / {dataset} /
     recall_plot(
         data_dir=RUN_01_DIR,
-        out_dir=Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results\aggregate_recall_plots'),
+        out_dir=OUT_DIR / 'individual_runs',
         source_dir=SOURCE_DIR,
         datasets=ALL_DATASETS,
-        out_name='figure_4',
+        out_name='figure_3',
         conditions=None,
         x_max=100,
-        show_diagonal=False,
+        show_diagonal=True,
         x_scale='count',
-        show_average=True,
-        figsize=(8, 5),
-        fontsize=16,
+        per_run=True,
+        figsize=(3.2, 2.0),
+        fontsize=9,
+        show_title=False,
+        show_legend=True,
+        out_format='pdf',
     )
+
+    # # Figure 4 — 8-panel aggregate recall figure for thesis
+    # # figsize matches the ~3.2 in render width (0.48 * 6.3 in A4 textwidth)
+    # # fontsize=8 renders at ~8 pt in the final PDF (no rescaling needed)
+    # recall_plot(
+    #     data_dir=RUN_01_DIR,
+    #     out_dir=Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results\aggregate_recall_plots'),
+    #     source_dir=SOURCE_DIR,
+    #     datasets=ALL_DATASETS,
+    #     out_name='figure_4',
+    #     conditions=None,
+    #     x_max=100,
+    #     show_diagonal=False,
+    #     x_scale='count',
+    #     show_average=True,
+    #     figsize=(3.2, 2.0),
+    #     fontsize=9,
+    #     show_title=False,
+    #     show_legend=True,
+    #     out_format='pdf',
+    # )
