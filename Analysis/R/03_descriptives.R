@@ -205,7 +205,6 @@ descriptive_histogram <- function(data, colours) {
 
 
 check_homogeneity <- function(data,
-                              colours, 
                               condition_col = "condition",
                               papers_found_col = "papers_found",
                               n_trials_col = "n_trials",
@@ -233,14 +232,10 @@ check_homogeneity <- function(data,
   ) +
     ggplot2::geom_boxplot() +
     ggplot2::scale_fill_manual(
-      values = colours,
-      breaks = names(colours),
       labels = c("LLM", "Eligibility criteria", "True examples", "Cold Start"),
       drop = FALSE
-    ) 
-  
-  # +
-  #   ggplot2::geom_jitter(width = jitter_width, alpha = jitter_alpha)
+    ) + 
+    ggplot2::geom_jitter(width = jitter_width, alpha = jitter_alpha)
   
   
   # Levene's test
