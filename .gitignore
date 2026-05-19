@@ -13,7 +13,7 @@ Mini_thesis.pdf
 
 # main statistical analysis only
 Analysis/analysis/*
-!Analysis/analysis/main_analysis.rmd
+!Analysis/analysis/analysis.Rmd
 
 # remove the results of simulations
 simulation_results/*
@@ -31,16 +31,22 @@ Report/results
 !Report/results_paragraph.tex
 !Report/references.bib
 
-!Report/midterm_report.tex
-!Report/midterm_report.pdf
-
-
 # folders to keep
 !Report/vector_space/
 !Report/images/
 
+# Python artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Claude Code internal state
+.claude/
+**/.claude/
+
 # Rstudio files
 .Rproj.user/
 .Rhistory
+**/.Rhistory
 .RData
 .Ruserdata

@@ -1,0 +1,902 @@
+---
+title: "estimating group means with bootstrapped"
+author: "Timo van Ommeren"
+date: "2026-03-11"
+output: html_document
+---
+
+```{r}
+library(here)
+here::i_am("Analysis/analysis/analysis.Rmd")
+
+source(here("Analysis/R/01_load_data.R"))
+source(here("Analysis/R/02_prepare_data.R"))
+source(here("Analysis/R/03_descriptives.R"))
+source(here("Analysis/R/bootstrap.R"))
+# source(here("R/04_models.R"))
+# source(here("R/05_plots.R"))
+
+```
+
+# Loading and transforming data
+
+```{r load and transform data}
+
+# import simulation results and metadata (specify paths relative to project root)
+raw <- load_simulation_data(data = "simulation_results/run_01/all_simulation_results.csv", 
+                             metadata = "Analysis/percentage_relevant.csv")
+
+# (1) transform simulation data to wide
+# (2) add the number of records, percentage of relevant records and dataset topic(s) from metadata to simulation data (these will serve as group-level predictors in multilevel model)
+# (4) rescale n_abstracts (divide by 100) and length_abstracts (divide by 1000)
+# (5) truncate topic names to first topic only
+processed <- prepare_data(raw$simulation, raw$meta)
+
+
+
+processed$simulation <- processed$simulation %>%
+  filter(run <= 270)
+
+processed$simulation <- processed$simulation %>%
+  filter(dataset != "Moran_2021")
+
+# two-part coding of llm-specific predictors (implicit dummy variable creation through zero imputation, see reproduction_Dziak_Henry.Rmd for verification of method)
+processed$simulation <- two_part_coding(processed$simulation)
+
+# assign to variables for easier access
+simulation_long <- raw$simulation
+simulation      <- processed$simulation
+metadata        <- processed$meta
+
+```
+
+# Preparation for analysis
+
+```{r set colours of plots}
+
+cud_cols <- c(
+  llm               = "#009E73",  # bluish green
+  criteria          = "#E69F00",  # orange
+  random            = "#0072B2",  # blue
+  no_initialisation = "#D55E00"   # vermillion
+)
+
+
+vir_cols <- c(
+    llm=                "#482475",
+    criteria=           "#2d708e",
+    random=             "#2ab07f",
+    no_initialisation=  "#bddf26"
+)
+
+# vir_cols <- setNames(
+#   viridisLite::viridis(4, option = "viridis", begin = 0.10, end = 0.90),
+#   c("llm", "criteria", "random", "no_initialisation")
+# )
+
+#define colours so that llm is green, criteria is yellow, no initialisation is red and random is blue
+
+cols <- c(
+  "llm" = "green", 
+  "criteria" = "yellow", 
+  "random" = "blue", 
+  "no_initialisation" = "red"
+)
+
+```
+
+
+## Descriptives
+
+### 
+
+```{r descriptive table}
+descriptive_tables(simulation)
+
+#export descriptive statistics table to latex format text file
+writeLines(capture.output(descriptive_tables(simulation)), here::here("Report/results/descriptives_table.tex"))
+```
+
+
+### Descriptive plots
+
+```{r barchart}
+descriptive_barchart(simulation, metadata, papers_found, y_axis = 100, colours = vir_cols)
+```
+
+Conclusion from plot: dataset should be used as control variable.
+
+```{r}
+descriptive_histogram(simulation, colours = vir_cols)
+```
+Conclusion from plot: if starting performance is modelled as a binomial variance, we may expect overdispersion (i.e., a larger variance than would be expected from the model-derived variance, given the mean-variance relationship of the binomial). Histograms per dataset show that even when controlling for dataset this is the case. note for example the spike at zero.
+
+```{r homogenity test}
+
+# check_homogeneity(simulation)
+# 
+# #return the variance of papers found by condition
+# simulation %>% group_by(condition) %>%
+#   summarise(
+#     variance = var(papers_found),
+#     mean = mean(papers_found)
+#   )
+
+```
+
+
+
+## Model
+
+```{r}
+model <- lm(papers_found ~ condition - 1 + dataset, 
+                data = simulation)
+
+summary(model)
+```
+
+
+```{r}
+library(car)
+
+# Type II SS — controls for all other variables simultaneously
+anova_table <- Anova(model, type = 2)
+
+# Partial eta-squared = SS_effect / (SS_effect + SS_residual)
+ss_condition <- anova_table["condition", "Sum Sq"]
+ss_dataset   <- anova_table["dataset",   "Sum Sq"]
+ss_residual  <- anova_table["Residuals", "Sum Sq"]
+
+peta2_condition <- ss_condition / (ss_condition + ss_residual)
+peta2_dataset   <- ss_dataset   / (ss_dataset   + ss_residual)
+
+# ── Write values to a LaTeX macro file so main.tex can read them ──────────────
+# APA style: no leading zero for statistics bounded between 0 and 1
+fmt_peta <- function(x) sub("^0\\.", ".", sprintf("%.2f", x))
+
+writeLines(
+  c(
+    paste0("\\newcommand{\\petacondition}{", fmt_peta(peta2_condition), "}"),
+    paste0("\\newcommand{\\petadataset}{",   fmt_peta(peta2_dataset),   "}")
+  ),
+  here::here("Report/values.tex")
+)
+```
+
+
+```{r}
+# 
+# #plot the residuals of the OLS model
+# predicted_OLS <- predict(OLS_model)
+# residuals_OLS <- residuals(OLS_model)
+# 
+# 
+# plot(predicted_OLS, residuals_OLS,
+#      xlab = "Predicted values",
+#      ylab = "Residuals",
+#      main = "Residuals vs Predicted values"
+# )
+# 
+# lmtest::bptest(OLS_model)
+```
+
+Conclusion from plot: clear heteroscedasticity, which violates the OLS assumption of homogeneity of variance. This can lead to biased standard errors and incorrect inferences. However, the estimates of the mean differences between conditions remain unbiased and consistent.
+
+
+```{r}
+library(emmeans)
+
+emmeans(model, ~ condition)
+```
+
+
+```{r}
+result <- bootstrap_group_means(simulation, B = 10000, ci_level = 0.95, seed = 123)
+
+result
+```
+
+
+```{r bootstrap-results}
+# ── Condition-level 95% CIs ────────────────────────────────────────────────────
+cat("=== Model-predicted condition means with 95% bootstrap CIs ===\n\n")
+print(result$boot_summary[, c("condition", "obs_mean", "ci_lo", "ci_hi")],
+      digits = 3, row.names = FALSE)
+
+# ── Pairwise comparisons ───────────────────────────────────────────────────────
+cat("\n=== Pairwise comparisons (bootstrap p-values, reflection method) ===\n\n")
+pw <- result$pairwise_comparisons
+pw$p_value_fmt <- ifelse(pw$p_value < .001, "< .001",
+                         sprintf("= %.3f", pw$p_value))
+print(pw[, c("condition1", "condition2", "obs_diff", "ci_lo", "ci_hi", "p_value_fmt")],
+      digits = 3, row.names = FALSE)
+
+```
+
+
+```{r bootstrap-null-distributions, fig.width=10, fig.height=8}
+cond_labels_named <- c(
+  no_initialisation = "Cold start",
+  criteria          = "Eligibility criteria",
+  llm               = "LLM",
+  random            = "Real abstract"
+)
+plot_boot_null_distributions(result, labels = cond_labels_named, ncol = 3)
+```
+
+
+```{r bootstrap-text-export}
+# ── Helpers ────────────────────────────────────────────────────────────────────
+bs <- result$boot_summary
+pw <- result$pairwise_comparisons
+B  <- nrow(result$boot_means)
+
+fmt_m       <- function(x)      sprintf("%.2f", x)
+fmt_ci      <- function(lo, hi) sprintf("[%.2f, %.2f]", lo, hi)
+fmt_p       <- function(p)      ifelse(p < .001, "$p < .001$", sprintf("$p = %.3f$", p))
+fmt_d       <- function(x)      sprintf("%.2f", abs(x))
+fmt_d_cohen <- function(d)      sprintf("%.2f", abs(d))
+fmt_n       <- function(x)      format(x, big.mark = ",")
+
+dir_word    <- function(d) if (d > 0) "more" else "fewer"
+sig_phrase  <- function(p) {
+  if (p < .05) "a statistically significant difference"
+  else         "a difference that was not statistically significant"
+}
+
+# Look up a pairwise row oriented as c1 − c2 (flips sign if stored the other way)
+.lookup <- function(c1, c2) {
+  row <- pw[pw$condition1 == c1 & pw$condition2 == c2, ]
+  if (nrow(row) == 0) {
+    row          <- pw[pw$condition1 == c2 & pw$condition2 == c1, ]
+    tmp          <- row$ci_lo
+    row$obs_diff <- -row$obs_diff
+    row$ci_lo    <- -row$ci_hi
+    row$ci_hi    <- -tmp
+  }
+  row
+}
+
+# ── Condition rows and contrasts ───────────────────────────────────────────────
+no_init <- bs[bs$condition == "no_initialisation", ]
+crit    <- bs[bs$condition == "criteria",          ]
+llm_c   <- bs[bs$condition == "llm",               ]
+rand    <- bs[bs$condition == "random",             ]
+
+c1 <- .lookup("criteria", "no_initialisation")  # (1) eligibility criteria − cold start
+c2 <- .lookup("llm",      "criteria")            # (2) LLM − eligibility criteria
+
+# ── Cohen's d (pooled raw SD of the two conditions) ───────────────────────────
+cohens_d <- function(cond1_name, cond2_name) {
+  g1 <- simulation$papers_found[simulation$condition == cond1_name]
+  g2 <- simulation$papers_found[simulation$condition == cond2_name]
+  n1 <- length(g1); n2 <- length(g2)
+  sd_pooled <- sqrt(((n1 - 1) * var(g1) + (n2 - 1) * var(g2)) / (n1 + n2 - 2))
+  (mean(g1) - mean(g2)) / sd_pooled
+}
+
+d1 <- cohens_d("criteria", "no_initialisation")
+d2 <- cohens_d("llm",      "criteria")
+
+# ── Descriptives ───────────────────────────────────────────────────────────────
+n_total    <- nrow(simulation)
+n_datasets <- length(unique(simulation$dataset))
+n_cond     <- nrow(simulation[simulation$condition == "llm", ])
+
+overall_mean <- mean(simulation$papers_found)
+overall_sd   <- sd(simulation$papers_found)
+overall_min  <- min(simulation$papers_found)
+overall_max  <- max(simulation$papers_found)
+
+desc <- simulation %>%
+  dplyr::group_by(condition) %>%
+  dplyr::summarise(M = mean(papers_found), SD = sd(papers_found), .groups = "drop")
+
+get_desc <- function(cond) desc[desc$condition == cond, ]
+d_noinit <- get_desc("no_initialisation")
+d_crit   <- get_desc("criteria")
+d_llm    <- get_desc("llm")
+d_rand   <- get_desc("random")
+
+# ── EDITORIAL REVISION (Round 2) ──────────────────────────────────────────────
+# Five problems in the original para, all fixed here:
+#
+# (1) REDUNDANCY: Overall mean (M=28.71) across conditions is meaningless (never
+#     used in Discussion) and the per-condition unadjusted means were repeated
+#     identically in the model paragraph. Removed both; model-estimated means with
+#     CIs are reported once.
+#
+# (2) FIGURE WALKTHROUGH: Para 2 described figures line-by-line (Walker_2018
+#     variability, Appenzeller-Herzog_2019 variability) without adding insight
+#     beyond what a reader can see. Replaced with a single takeaway sentence.
+#     The Brouwer_2019 outlier observation is preserved as it motivates why
+#     condition D variance differs, but tightened.
+#
+# (3) PARAGRAPH SPLIT: The spaghetti-plot paragraph was split across two
+#     paragraphs for no reason. Merged into one sentence (prevalence moderator
+#     finding) + variance partitioning.
+#
+# (4) METHODS IN RESULTS: "A linear regression model was fit to estimate...
+#     Uncertainty was quantified via a pairs bootstrap (B = 10,000 resamples)."
+#     This restates the Methods. Removed; the model is described in §2.2 after
+#     Round 1 edits.
+#
+# (5) METHOD-FIRST CONTRASTS: Both contrast sentences spent 18-42 words on
+#     method setup before stating the finding. Flipped to lead with the result.
+#
+# Word count: ~350 → ~155 words (~56% reduction).
+# ──────────────────────────────────────────────────────────────────────────────
+
+para <- paste0(
+
+  # ── Para 1: Key visual pattern (figures + prevalence moderator) ───────────────
+  # PURPOSE: orient the reader to the figures and state the single most important
+  # visual takeaway before the formal model results.
+  "More relevant papers were consistently found within the first 100 screened in the eligibility criteria condition, the LLM condition, and the real abstract condition than in the cold start condition (with a few exceptions, see \\autoref{fig:means-per-dataset}). ",
+  "The difference between the cold start condition and the other three conditions widened as the percentage of relevant papers decreased: ",
+  "datasets with a high percentage of relevant papers showed little difference between conditions, ",
+  "while datasets with a low percentage showed the largest gain for the other three conditions over the cold start condition. ",
+  
+    "\n\n",
+  
+  "The cold start condition and the real abstract condition showed the highest between-run variability (see recall plots of all simulations runs per condition as well as their average in \\autoref{fig:aggregate-recall-plots} and \\autoref{sec:appendix-recall-plots}).",
+  " Some runs in the real abstract condition led to markedly fewer papers found than the condition mean (e.g., 15 instead of 25 for Brouwer\\_2019).",
+
+  "\n\n",
+
+  # ── Para 2: Variance decomposition + model-estimated means ────────────────────
+  # PURPOSE: quantify how much variance is between-dataset vs between-condition,
+  # then report the four adjusted means that are the basis for the contrasts.
+  "Model-estimated means after controlling for dataset (95\\% bootstrapped CIs) were: ",
+  "cold start, $M = ", fmt_m(no_init$obs_mean), "$ ",
+    fmt_ci(no_init$ci_lo, no_init$ci_hi), "; ",
+  "eligibility criteria, $M = ", fmt_m(crit$obs_mean), "$ ",
+    fmt_ci(crit$ci_lo, crit$ci_hi), "; ",
+  "LLM, $M = ", fmt_m(llm_c$obs_mean), "$ ",
+    fmt_ci(llm_c$ci_lo, llm_c$ci_hi), "; ",
+  "real abstract, $M = ", fmt_m(rand$obs_mean), "$ ",
+    fmt_ci(rand$ci_lo, rand$ci_hi),
+  " (Figure~\\ref{fig:model-predicted-means}).",
+
+  "\n\n",
+
+  # ── Para 3: Two pre-specified contrasts ───────────────────────────────────────
+  # PURPOSE: state the two primary findings directly, leading with the result.
+  "The eligibility criteria condition found significantly more relevant papers (",
+    fmt_d(c1$obs_diff), ") on average than the cold start condition",
+    "(95\\% CI ", fmt_ci(c1$ci_lo, c1$ci_hi), ", ", fmt_p(c1$p_value),
+    "; Cohen's \\textit{d} = ", fmt_d_cohen(d1), "). ",
+  "The LLM condition found ", fmt_d(c2$obs_diff),
+    " more papers than the eligibility criteria condition, ",
+    "a negligible and non-significant difference ",
+    "(95\\% CI ", fmt_ci(c2$ci_lo, c2$ci_hi), ", ", fmt_p(c2$p_value),
+    "; \\textit{d} = ", fmt_d_cohen(d2), ")."
+
+)
+
+writeLines(para, here::here("Report/results/bootstrap_results.tex"))
+cat(para)
+```
+
+
+
+```{r boxplot model predicted group means}
+# ── 1. Prepare bootstrap summary ──────────────────────────────────────────────
+boot_df <- result$boot_summary
+
+# Condition order and labels (consistent with spaghetti plot)
+cond_order  <- c("no_initialisation", "criteria", "llm", "random")
+cond_labels <- c("Cold \nstart", "Eligibility \ncriteria", "LLM", "Real \nabstract")
+
+boot_df$condition <- factor(boot_df$condition, levels = cond_order)
+
+# ── 2. Extract p-values for the two focal comparisons ─────────────────────────
+pw <- result$pairwise_comparisons
+
+.fmt_p <- function(p) {
+  if (p < .001) "p < .001" else sprintf("p = %.3f", p)
+}
+
+# (1) cold start vs eligibility criteria:  no_initialisation − criteria
+p1 <- pw$p_value[pw$condition1 == "no_initialisation" & pw$condition2 == "criteria" |
+                 pw$condition1 == "criteria" & pw$condition2 == "no_initialisation"]
+label1 <- paste0("(1) ", .fmt_p(p1))
+
+# (2) eligibility criteria vs LLM:  criteria − llm
+p2 <- pw$p_value[pw$condition1 == "criteria" & pw$condition2 == "llm" |
+                 pw$condition1 == "llm"      & pw$condition2 == "criteria"]
+label2 <- paste0("(2) ", .fmt_p(p2))
+
+# ── 3. Compute annotation positions ───────────────────────────────────────────
+y_max   <- max(boot_df$ci_lo[c(1,2,4)], na.rm = TRUE)
+y_min   <- min(boot_df$ci_lo[c(1,2,4)], na.rm = TRUE)
+y_range <- y_max - y_min
+nudge   <- y_range * 0.12
+
+# below-bracket for comparison (2) (criteria = pos 2, llm = pos 3 on the factor axis)
+y_below <- y_min - nudge * 8
+tip_h   <- nudge * 1.8
+
+# ── 4. Plot ────────────────────────────────────────────────────────────────────
+p_means <- ggplot2::ggplot(
+  boot_df,
+  ggplot2::aes(x = condition, y = obs_mean)
+) +
+  # 95% bootstrapped CI
+  ggplot2::geom_errorbar(
+    ggplot2::aes(ymin = ci_lo, ymax = ci_hi),
+    width     = 0.30,
+    linewidth = 0.7,
+    colour    = "grey40"
+  ) +
+  # model-estimated mean (diamond), coloured by condition — drawn on top
+  ggplot2::geom_point(
+    ggplot2::aes(colour = condition),
+    shape = 18,
+    size  = 4.5
+  ) +
+  # ── focal comparison (1): cold start vs eligibility criteria (bracket above) ──
+  ggsignif::geom_signif(
+    comparisons = list(c("no_initialisation", "criteria")),
+    annotations = label1,
+    y_position  = y_max + nudge * 1.8,
+    tip_length  = 0.015,
+    textsize    = 3.5,
+    vjust       = -0.2,
+    colour      = "grey20"
+  ) +
+  # ── focal comparison (2): eligibility criteria vs LLM (bracket below) ─────────
+  # drawn manually so it sits below the dots
+  ggplot2::annotate("segment",
+    x = 2, xend = 3, y = y_below, yend = y_below,
+    colour = "grey20", linewidth = 0.5
+  ) +
+  ggplot2::annotate("segment",
+    x = 2, xend = 2, y = y_below, yend = y_below + tip_h,
+    colour = "grey20", linewidth = 0.5
+  ) +
+  ggplot2::annotate("segment",
+    x = 3, xend = 3, y = y_below, yend = y_below + tip_h,
+    colour = "grey20", linewidth = 0.5
+  ) +
+  ggplot2::annotate("text",
+    x = 2.5, y = y_below - nudge * 10,
+    label = label2, size = 3.5, colour = "grey20"
+  ) +
+  ggplot2::scale_colour_manual(values = cud_cols, guide = "none") +
+  ggplot2::scale_x_discrete(labels = setNames(cond_labels, cond_order)) +
+  ggplot2::scale_y_continuous(
+    expand = ggplot2::expansion(mult = c(0.22, 0.25))  # space for below + above brackets
+  ) +
+  ggplot2::labs(
+    x = NULL,
+    y = "Number of relevant papers found"
+  ) +
+  ggplot2::theme_bw(base_size = 11) +
+  ggplot2::theme(
+    panel.grid.minor   = ggplot2::element_blank(),
+    panel.grid.major.x = ggplot2::element_blank(),
+    axis.text          = ggplot2::element_text(size = 10),
+    axis.title.y       = ggplot2::element_text(size = 11),
+    plot.margin        = ggplot2::margin(t = 6, r = 8, b = 4, l = 6)
+  )
+
+p_means
+
+ggplot2::ggsave(
+  here::here("Report/results/condition_means_annotated.pdf"),
+  plot   = p_means,
+  width  = 4.5,   # = 0.72 * 6.3 in — matches \includegraphics[width=0.72\textwidth]
+  height = 3.2,
+  device = grDevices::pdf
+)
+```
+
+
+```{r spaghetti plot data}
+# ── 1. Per-dataset, per-condition means ───────────────────────────────────────
+dataset_means <- simulation |>
+  dplyr::summarise(
+    mean_papers = mean(papers_found, na.rm = TRUE),
+    .by = c(condition, dataset)
+  )
+
+# ── 2. Condition order and x-axis labels (consistent with Plot 2) ─────────────
+cond_order  <- c("no_initialisation", "criteria", "llm", "random")
+cond_labels <- c("Cold \nstart", "Eligibility \ncriteria", "LLM", "Real \nabstract")
+
+dataset_means$condition <- factor(dataset_means$condition, levels = cond_order)
+
+# ── 3. Order datasets by % relevant (from SYNERGY table, low → high) ──────────
+ds_pct <- c(
+  "Appenzeller-Herzog_2019" = 0.9,
+  "Bos_2018"                = 0.2,
+  "Brouwer_2019"            = 0.2,
+  "Chou_2003"               = 0.8,
+  "Donners_2021"            = 5.8,
+  "Hall_2012"               = 1.2,
+  "Leenaars_2019"           = 0.3,
+  "Leenaars_2020"           = 8.1,
+  "Meijboom_2021"           = 4.2,
+  "Menon_2022"              = 7.6,
+  "Muthu_2021"              = 12.4,
+  "Nelson_2002"             = 21.9,
+  "Oud_2018"                = 2.1,
+  "Radjenovic_2013"         = 0.8,
+  "Sep_2021"                = 14.8,
+  "Smid_2020"               = 1.0,
+  "van_de_Schoot_2018"      = 0.8,
+  "van_der_Valk_2021"       = 12.3,
+  "van_der_Waal_2022"       = 1.7,
+  "van_Dis_2020"            = 0.8,
+  "Walker_2018"             = 1.6,
+  "Wassenaar_2017"          = 1.4,
+  "Wolters_2018"            = 0.4
+)
+
+ds_n <- c(
+  "Appenzeller-Herzog_2019" = 26,
+  "Bos_2018"                = 10,
+  "Brouwer_2019"            = 62,
+  "Chou_2003"               = 15,
+  "Donners_2021"            = 15,
+  "Hall_2012"               = 104,
+  "Leenaars_2019"           = 17,
+  "Leenaars_2020"           = 583,
+  "Meijboom_2021"           = 37,
+  "Menon_2022"              = 74,
+  "Muthu_2021"              = 336,
+  "Nelson_2002"             = 80,
+  "Oud_2018"                = 20,
+  "Radjenovic_2013"         = 48,
+  "Sep_2021"                = 40,
+  "Smid_2020"               = 27,
+  "van_de_Schoot_2018"      = 38,
+  "van_der_Valk_2021"       = 89,
+  "van_der_Waal_2022"       = 33,
+  "van_Dis_2020"            = 72,
+  "Walker_2018"             = 762,
+  "Wassenaar_2017"          = 111,
+  "Wolters_2018"            = 19
+)
+
+ds_in_data <- unique(dataset_means$dataset)
+ds_order   <- names(sort(ds_pct[ds_in_data]))
+n_ds       <- length(ds_order)
+ds_palette <- setNames(
+  viridisLite::viridis(n_ds, option = "turbo", begin = 0.05, end = 0.95),
+  ds_order
+)
+ds_labels <- setNames(
+  paste0(ds_order, " (n=", ds_n[ds_order], ", ", ds_pct[ds_order], "%)"),
+  ds_order
+)
+dataset_means$dataset <- factor(dataset_means$dataset, levels = ds_order)
+
+# ── 4. Plot ────────────────────────────────────────────────────────────────────
+p_spaghetti <- ggplot2::ggplot(
+  dataset_means,
+  ggplot2::aes(
+    x      = condition,
+    y      = mean_papers,
+    group  = dataset,
+    colour = dataset
+  )
+) +
+  ggplot2::geom_line(linewidth = 0.45, alpha = 0.6) +
+  ggplot2::geom_point(size = 1.8, alpha = 0.85) +
+  ggplot2::scale_colour_manual(values = ds_palette, labels = ds_labels) +
+  ggplot2::scale_x_discrete(labels = setNames(cond_labels, cond_order)) +
+  ggplot2::labs(
+    x      = NULL,
+    y      = "Mean relevant papers found",
+    colour = "Dataset"
+  ) +
+  ggplot2::guides(
+    colour = ggplot2::guide_legend(
+      ncol      = 1,
+      keywidth  = ggplot2::unit(0.5, "cm"),
+      keyheight = ggplot2::unit(0.35, "cm")
+    )
+  ) +
+  ggplot2::theme_bw(base_size = 11) +
+  ggplot2::theme(
+    legend.position    = "right",
+    legend.text        = ggplot2::element_text(size = 7),
+    legend.title       = ggplot2::element_text(size = 8.5, face = "bold"),
+    panel.grid.minor   = ggplot2::element_blank(),
+    panel.grid.major.x = ggplot2::element_blank(),
+    axis.text          = ggplot2::element_text(size = 10),
+    axis.title.y       = ggplot2::element_text(size = 11)
+  )
+
+p_spaghetti
+
+ggplot2::ggsave(
+  here::here("Report/results/spaghetti_dataset_means.pdf"),
+  plot   = p_spaghetti,
+  width  = 6.3,   # matches \textwidth on A4 with 2.5 cm margins
+  height = 4.0,
+  device = grDevices::pdf
+)
+```
+
+
+# Supplementary analysis: effect of LLM-specific parameters
+
+The three LLM-specific variables (`n_abstracts_llm`, `length_abstracts_llm`,
+`llm_temperature_llm`) are mean-centred within the LLM condition and zero-imputed
+elsewhere (two-part coding). To test their effect on screening performance the
+model is therefore fit on the LLM condition only, so the coefficients represent
+the within-LLM effect of each parameter setting net of dataset and trial-count
+differences.
+
+```{r llm-descriptives}
+simulation_llm <- simulation %>% dplyr::filter(condition == "llm")
+
+# Raw (un-centred) values, one row per unique LLM configuration
+simulation_llm %>%
+  dplyr::summarise(
+    n              = dplyr::n(),
+    n_abstracts_M  = mean(n_abstracts,     na.rm = TRUE),
+    n_abstracts_SD = sd(n_abstracts,       na.rm = TRUE),
+    length_M       = mean(length_abstracts, na.rm = TRUE),
+    length_SD      = sd(length_abstracts,   na.rm = TRUE),
+    temp_M         = mean(llm_temperature,  na.rm = TRUE),
+    temp_SD        = sd(llm_temperature,    na.rm = TRUE)
+  )
+```
+
+```{r llm-parameters-model}
+model_llm <- lm(
+  papers_found ~ n_abstracts_llm + length_abstracts_llm + llm_temperature_llm +
+                 dataset,
+  data = simulation_llm
+)
+
+summary(model_llm)
+```
+
+```{r llm-parameters-anova}
+library(car)
+
+# Type II SS — controls for all other terms simultaneously
+anova_llm <- car::Anova(model_llm, type = 2)
+print(anova_llm)
+
+# Partial eta-squared for each LLM predictor
+ss_resid <- anova_llm["Residuals", "Sum Sq"]
+
+peta2 <- function(ss) ss / (ss + ss_resid)
+
+peta2_results <- data.frame(
+  predictor = c("n_abstracts_llm", "length_abstracts_llm", "llm_temperature_llm"),
+  partial_eta2 = c(
+    peta2(anova_llm["n_abstracts_llm",    "Sum Sq"]),
+    peta2(anova_llm["length_abstracts_llm", "Sum Sq"]),
+    peta2(anova_llm["llm_temperature_llm",  "Sum Sq"])
+  )
+)
+
+print(peta2_results, digits = 3)
+```
+
+```{r llm-parameters-table}
+# ── Extract values ─────────────────────────────────────────────────────────────
+coefs <- summary(model_llm)$coefficients
+cis   <- confint(model_llm)          # t-based 95% CIs (n = 6210, so ≈ z)
+
+predictors <- c("n_abstracts_llm", "length_abstracts_llm", "llm_temperature_llm")
+
+param_labels <- c(
+  n_abstracts_llm      = "Number of abstracts",
+  length_abstracts_llm = "Abstract length",
+  llm_temperature_llm  = "Temperature"
+)
+
+fmt_p_tex <- function(p) {
+  if (p < .001) "$<$\\,.001" else sprintf("%.3f", p)
+}
+
+fmt_ci_tex <- function(lo, hi) sprintf("[%.2f, %.2f]", lo, hi)
+
+# ── Build table rows ───────────────────────────────────────────────────────────
+row_lines <- sapply(predictors, function(v) {
+  B   <- coefs[v, "Estimate"]
+  se  <- coefs[v, "Std. Error"]
+  p   <- coefs[v, "Pr(>|t|)"]
+  ci  <- fmt_ci_tex(cis[v, 1], cis[v, 2])
+  sprintf(
+    "%s & %.2f & %.2f & %s & %s \\\\",
+    param_labels[v],
+    B, se,
+    fmt_p_tex(p),
+    ci
+  )
+})
+
+# ── Assemble full table ────────────────────────────────────────────────────────
+n_llm <- nrow(simulation_llm)
+
+tex_table <- c(
+  "\\begin{table}[h]",
+  "  \\centering",
+  paste0(
+    "  \\caption{Effects of LLM parameter settings on the number of relevant papers ",
+    "found (supplementary analysis, $n$ = ", format(n_llm, big.mark = ","), " runs). ",
+    "The model was fit on the LLM condition only, controlling for dataset and number ",
+    "of trials (OLS, Type~II SS).}"
+  ),
+  "  \\label{tab:llm-parameters}",
+  "  \\begin{tabular}{lcccc}",
+  "    \\hline",
+  "    Parameter & $B$ & $SE^{\\,\\dagger}$ & $p^{\\,\\dagger}$ & 95\\% CI$^{\\,\\dagger}$ \\\\",
+  "    \\hline",
+  paste0("    ", row_lines),
+  "    \\hline",
+  paste0(
+    "    \\multicolumn{5}{p{0.88\\textwidth}}{\\footnotesize ",
+    "$^{\\dagger}$~Standard errors, confidence intervals, and $p$-values assume homoscedastic, independent residuals. Given the repeated-measures simulation structure and the heteroscedastic residuals identified in the main analysis, these should be interpreted with caution.} \\\\"
+  ),
+  "  \\end{tabular}",
+  "\\end{table}"
+)
+
+writeLines(tex_table, here::here("Report/results/llm_parameters_table.tex"))
+cat(paste(tex_table, collapse = "\n"))
+```
+
+
+# Supplementary analysis: effect of eligibility criteria modifications
+
+A separate simulation tested whether supplementing the eligibility criteria
+improved starting performance in the criteria condition. Two modifications
+were compared against the original eligibility criteria: writing out abbreviations
+(`Abbreviations`) and adding MeSH terms (`Expanded_terms`). The model mirrors
+the main analysis: OLS with dataset fixed effects and number of trials as
+covariates.
+
+Note: this simulation was run on a subset of 12 datasets. The raw long-format
+data is used directly to avoid a pivot issue caused by duplicate rows for
+conditions where `criterium` is not applicable. To ensure a balanced design,
+only the first 4 replicates (by run number) are retained per
+`(dataset, criterium)` combination; this drops the fifth replicate of
+`Original` and `Abbreviations` for which no corresponding `Expanded_terms`
+run was executed.
+
+```{r criteria-mod-data}
+# ── Load raw simulation data (separate run from main analysis) ─────────────────
+raw_h3 <- read.csv(
+  here::here("simulation_results/run_varying_eligibility_criteria/all_simulation_results.csv"),
+  na.strings = c("", "NA"),
+  stringsAsFactors = FALSE
+)
+
+# Extract papers_found for the criteria condition only.
+# criterium is the literal training example in this condition, so its text
+# modifications are directly tested here.
+#
+# Balanced design: Expanded_terms only completed 4 replicates (its 5th was
+# never executed), while Original and Abbreviations each have 5. Run numbers
+# are criterium-specific (e.g. Original uses runs 2,7,12,17,22; Expanded_terms
+# uses 5,10,15,20), so we cannot filter by run number directly. Instead, we
+# rank runs within each (dataset, criterium) group and keep the first 4, giving
+# 4 matched replicates per criterium across all 12 datasets.
+simulation_criteria_mod <- raw_h3 %>%
+  dplyr::filter(
+    metric    == "papers_found",
+    condition == "criteria",
+    criterium %in% c("Original", "Abbreviations", "Expanded_terms"),
+    dataset   != "Moran_2021"
+  ) %>%
+  dplyr::rename(papers_found = value) %>%
+  dplyr::mutate(papers_found = as.numeric(papers_found)) %>%
+  dplyr::group_by(dataset, criterium) %>%
+  dplyr::arrange(run, .by_group = TRUE) %>%
+  dplyr::slice_head(n = 4) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(criterium = relevel(factor(criterium), ref = "Original"))
+
+# Overview
+cat("Rows:", nrow(simulation_criteria_mod), "\n\n")
+cat("Runs per criterium level:\n")
+print(table(simulation_criteria_mod$criterium))
+cat("\nDatasets included:\n")
+print(sort(unique(simulation_criteria_mod$dataset)))
+
+# Unadjusted means per criterium level
+simulation_criteria_mod %>%
+  dplyr::group_by(criterium) %>%
+  dplyr::summarise(
+    n  = dplyr::n(),
+    M  = round(mean(papers_found, na.rm = TRUE), 2),
+    SD = round(sd(papers_found,   na.rm = TRUE), 2),
+    .groups = "drop"
+  ) %>%
+  print()
+```
+
+```{r criteria-mod-model}
+model_crit_mod <- lm(
+  papers_found ~ criterium + dataset,
+  data = simulation_criteria_mod
+)
+
+summary(model_crit_mod)
+```
+
+```{r criteria-mod-anova}
+# Type II SS — controls for all other terms simultaneously
+anova_crit_mod <- car::Anova(model_crit_mod, type = 2)
+print(anova_crit_mod)
+
+# Partial eta-squared for criterium
+ss_resid_crit <- anova_crit_mod["Residuals", "Sum Sq"]
+peta2_criterium <- anova_crit_mod["criterium", "Sum Sq"] /
+                   (anova_crit_mod["criterium", "Sum Sq"] + ss_resid_crit)
+cat("\nPartial eta-squared for criterium:", round(peta2_criterium, 4), "\n")
+```
+
+```{r criteria-mod-emmeans}
+# Pairwise contrasts vs Original (treatment vs control)
+emm_crit_mod    <- emmeans::emmeans(model_crit_mod, ~ criterium)
+contrasts_crit  <- emmeans::contrast(emm_crit_mod, method = "trt.vs.ctrl",
+                                     ref = "Original")
+summary(contrasts_crit, infer = TRUE)
+```
+
+```{r criteria-mod-table}
+# ── Extract emmeans results ────────────────────────────────────────────────────
+cont_df <- as.data.frame(summary(contrasts_crit, infer = TRUE))
+
+# Human-readable row labels
+cont_df$label <- ifelse(
+  grepl("Abbreviations",  cont_df$contrast), "Abbreviations written out",
+  ifelse(grepl("Expanded_terms", cont_df$contrast), "MeSH terms added", cont_df$contrast)
+)
+
+fmt_p_tex <- function(p) ifelse(p < .001, "$<$\\,.001", sprintf("%.3f", p))
+
+n_per_group <- nrow(simulation_criteria_mod) / nlevels(simulation_criteria_mod$criterium)
+
+row_lines <- sapply(seq_len(nrow(cont_df)), function(i) {
+  sprintf(
+    "%s & %.2f & %.2f & %s & [%.2f, %.2f] \\\\",
+    cont_df$label[i],
+    cont_df$estimate[i],
+    cont_df$SE[i],
+    fmt_p_tex(cont_df$p.value[i]),
+    cont_df$lower.CL[i],
+    cont_df$upper.CL[i]
+  )
+})
+
+tex_table <- c(
+  "\\begin{table}[h]",
+  "  \\centering",
+  paste0(
+    "  \\caption{Effect of enriching the eligibility criteria on the number of relevant ",
+    "papers found. Contrasts compare each enriched version to the original eligibility criteria.}"
+  ),
+  "  \\label{tab:criteria-mod}",
+  "  \\begin{tabular}{lcccc}",
+  "    \\hline",
+  "    Contrast (vs.\\ original) & $B$ & $SE^{\\,\\dagger}$ & $p^{\\,\\dagger}$ & 95\\% CI$^{\\,\\dagger}$\\\\",
+  "    \\hline",
+  paste0("    ", row_lines),
+  "    \\hline",
+  paste0(
+    "    \\multicolumn{5}{p{0.88\\textwidth}}{\\footnotesize ",
+    "$^{\\dagger}$~Standard errors, confidence intervals, and $p$-values should be interpreted with caution, since these assume homoscedastic residuals which might not hold.} \\\\"
+  ),
+  "  \\end{tabular}",
+  "\\end{table}"
+)
+
+writeLines(tex_table, here::here("Report/results/criteria_mod_table.tex"))
+cat(paste(tex_table, collapse = "\n"))
+```
+
+
+
+
