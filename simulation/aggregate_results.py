@@ -133,20 +133,23 @@ def aggregate_recall_plots(datasets, out_dir: Path, x_max: int = None) -> None:
     plt.savefig(plot_path)
     plt.close()
 
-# parameters for evaluation
+import typer
 
-out_dir = Path(r'C:\\Users\\timov\\Desktop\\Utrecht\\Utrecht\\MSBBSS\\thesis_timo\\simulation_results\\full_run_Appel_Brouwer')
-in_dir  = Path(r'C:\\Users\\timov\\Desktop\\Utrecht\\Utrecht\\MSBBSS\\thesis_timo\\Synergy\\synergy_dataset')
+app = typer.Typer()
 
-dataset_names = [p.name for p in out_dir.iterdir() if p.is_dir()]
-datasets = {name: pd.read_csv(in_dir / f'{name}.csv') for name in dataset_names}
+@app.command()
+def main(
+    in_dir:  Path = typer.Argument(..., exists=True,  file_okay=False, dir_okay=True,
+                                   help="Folder containing dataset CSV files (e.g. data/synergy_dataset)."),
+    out_dir: Path = typer.Argument(..., file_okay=False, dir_okay=True,
+                                   help="Root simulation output folder (e.g. simulation_results/run_01)."),
+    x_max:   int  = typer.Option(None, help="Clip x-axis at this many records screened. Omit for full axis."),
+):
+    dataset_names = [p.name for p in out_dir.iterdir() if p.is_dir()]
+    datasets = {name: pd.read_csv(in_dir / f"{name}.csv") for name in dataset_names}
+    print(f"Aggregating recall plots for: {dataset_names}")
+    aggregate_recall_plots(datasets=datasets, out_dir=out_dir, x_max=x_max)
+    print("Aggregation complete.")
 
-print(list(datasets.keys()))
-
-aggregate_recall_plots(
-    datasets=datasets,
-    out_dir=out_dir,
-    x_max=None
-)
-
-print("Aggregation complete.")
+if __name__ == "__main__":
+    app()

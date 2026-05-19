@@ -4,16 +4,9 @@
 
 Articles/
 Thomas_EUDA/
-Synergy/
-simulations/__pycache__/
-simulations/output/
-simulations/output_study_100_runs_tdd/
+data/
 notebooks/
 Mini_thesis.pdf
-
-# main statistical analysis only
-Analysis/analysis/*
-!Analysis/analysis/analysis.Rmd
 
 # remove the results of simulations
 simulation_results/*

@@ -7,7 +7,7 @@ output: html_document
 
 ```{r}
 library(here)
-here::i_am("Analysis/analysis/analysis.Rmd")
+here::i_am("Analysis/analysis.Rmd")
 
 source(here("Analysis/R/01_load_data.R"))
 source(here("Analysis/R/02_prepare_data.R"))

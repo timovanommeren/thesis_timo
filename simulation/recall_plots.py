@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+plt.rcParams['text.usetex'] = True
 from matplotlib.ticker import MaxNLocator
 
 
@@ -18,7 +19,7 @@ _CONDITION_COLORS = {
 }
 
 _CONDITION_LABELS = {
-    'random':            'Actual paper',
+    'random':            'Real abstract',
     'llm':               'LLM',
     'criteria':          'Eligibility criteria',
     'no_initialisation': 'Cold start',
@@ -95,6 +96,7 @@ def recall_plot(
     out_format: str = 'png',
     condition_labels: dict = None,
     diagonal_label: str = 'Random screening (no AI)',
+    y_offset_conditions: dict = None,
 ) -> None:
     """Generic recall plot.
 
@@ -155,6 +157,7 @@ def recall_plot(
     if conditions is None:
         conditions = ALL_CONDITIONS
     _labels = {**_CONDITION_LABELS, **(condition_labels or {})}
+    _y_offsets = y_offset_conditions or {}
 
     # ── 1. load data ──────────────────────────────────────────────────────────
     # dataset_totals[dataset] = N, read from the authoritative source CSV.
@@ -273,14 +276,15 @@ def recall_plot(
                 x = (pd.Series(range(1, n + 1)) / cond_size if x_scale == 'proportion'
                      else pd.Series(range(1, n + 1)))
 
+                y_off = _y_offsets.get(condition, 0)
                 if show_average:
                     for s in series_list:
-                        ax.plot(x, s, color=color, alpha=0.07, linewidth=0.5)
+                        ax.plot(x, s + y_off, color=color, alpha=0.07, linewidth=0.5)
                     mean_curve = pd.concat(series_list, axis=1).ffill(axis=0).mean(axis=1)
-                    ax.plot(x, mean_curve, label=cond_label, color=color, linewidth=2.0, linestyle='--')
+                    ax.plot(x, mean_curve + y_off, label=cond_label, color=color, linewidth=2.0, linestyle='--')
                 else:
                     for i, s in enumerate(series_list):
-                        ax.plot(x, s,
+                        ax.plot(x, s + y_off,
                                 label=cond_label if i == 0 else '_nolegend_',
                                 color=color, alpha=1, linewidth=1)
 
@@ -315,7 +319,8 @@ def recall_plot(
                 n         = len(s)
                 x = (pd.Series(range(1, n + 1)) / cond_size if x_scale == 'proportion'
                      else pd.Series(range(1, n + 1)))
-                ax.plot(x, s, label=cond_label, color=color, linewidth=1.5)
+                y_off = _y_offsets.get(condition, 0)
+                ax.plot(x, s + y_off, label=cond_label, color=color, linewidth=1.5)
 
             if show_diagonal and x_max is None and n_relevant.get(dataset, 0) > 0:
                 _draw_diagonal(ax, n_relevant[dataset], dataset_totals[dataset], x_scale,
@@ -337,36 +342,38 @@ def recall_plot(
 # ── example usage ──────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    RUN_01_DIR    = Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\simulation_results\run_01')
-    FULL_RUNS_DIR = Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\simulation_results\Appenzeller-Herzog_full')
-    OUT_DIR       = Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results')
-    SOURCE_DIR    = Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Synergy\synergy_dataset')
+    _ROOT         = Path(__file__).parent.parent
+    RUN_01_DIR    = _ROOT / 'simulation_results' / 'run_01'
+    FULL_RUNS_DIR = _ROOT / 'simulation_results' / 'Appenzeller-Herzog_full'
+    OUT_DIR       = _ROOT / 'Report' / 'results'
+    SOURCE_DIR    = _ROOT / 'data' / 'synergy_dataset'
     APPEN_BROUWER      = ['Appenzeller-Herzog_2019', 'Brouwer_2019']
     ALL_DATASETS = ['Appenzeller-Herzog_2019', 'Bos_2018', 'Brouwer_2019', 'Chou_2003', 'Donners_2021', 'Hall_2012', 'Leenaars_2019', 'Leenaars_2020', 'Meijboom_2021', 'Menon_2022', 'Moran_2021', 'Muthu_2021', 'Nelson_2002', 'Oud_2018', 'Radjenovic_2013', 'Sep_2021', 'Smid_2020', 'Walker_2018', 'Wassenaar_2017', 'Wolters_2018', 'van_Dis_2020', 'van_de_Schoot_2018', 'van_der_Valk_2021', 'van_der_Waal_2022']
 
-    # Figure 1 – single dataset, random condition only, full x-axis with diagonal
-    recall_plot(
-        data_dir=FULL_RUNS_DIR,
-        out_dir=OUT_DIR,
-        source_dir=SOURCE_DIR,
-        out_name='figure_1',
-        datasets=APPEN_BROUWER,
-        conditions=['random', 'no_initialisation'],
-        x_max=None,
-        show_diagonal=True,
-        x_scale='count',
-        show_average=False,
-        figsize=(3.2, 2.0),
-        fontsize=9,
-        show_title=False,
-        show_legend=True,
-        out_format='pdf',
-        condition_labels={
-            'random':            'AI-assisted',
-            'no_initialisation': 'AI-assisted (cold start)',
-        },
-        diagonal_label='manual screening',
-    )
+    # # Figure 1 – single dataset, random condition only, full x-axis with diagonal
+    # recall_plot(
+    #     data_dir=FULL_RUNS_DIR,
+    #     out_dir=OUT_DIR,
+    #     source_dir=SOURCE_DIR,
+    #     out_name='figure_1',
+    #     datasets=APPEN_BROUWER,
+    #     conditions=['random', 'no_initialisation'],
+    #     x_max=None,
+    #     show_diagonal=True,
+    #     x_scale='count',
+    #     show_average=False,
+    #     figsize=(3.2, 2.0),
+    #     fontsize=9,
+    #     show_title=False,
+    #     show_legend=True,
+    #     out_format='pdf',
+    #     condition_labels={
+    #         'random':            r'\textbf{(D)} AI-assisted (real abstract)',
+    #         'no_initialisation': r'\textbf{(A)} AI-assisted (cold start)',
+    #     },
+    #     diagonal_label='manual screening',
+    #     y_offset_conditions={'random': 1},
+    # )
 
     # # Figure 2 – both datasets (two separate plots), all conditions, mean + traces
     # recall_plot(
@@ -390,7 +397,7 @@ if __name__ == '__main__':
     #     data_dir=RUN_01_DIR,
     #     out_dir=OUT_DIR / 'individual_runs',
     #     source_dir=SOURCE_DIR,
-    #     datasets=ALL_DATASETS,
+    #     datasets=['Appenzeller-Herzog_2019', 'Brouwer_2019'],
     #     out_name='figure_3',
     #     conditions=None,
     #     x_max=100,
@@ -404,23 +411,23 @@ if __name__ == '__main__':
     #     out_format='pdf',
     # )
 
-    # # Figure 4 — 8-panel aggregate recall figure for thesis
-    # # figsize matches the ~3.2 in render width (0.48 * 6.3 in A4 textwidth)
-    # # fontsize=8 renders at ~8 pt in the final PDF (no rescaling needed)
-    # recall_plot(
-    #     data_dir=RUN_01_DIR,
-    #     out_dir=Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results\aggregate_recall_plots'),
-    #     source_dir=SOURCE_DIR,
-    #     datasets=ALL_DATASETS,
-    #     out_name='figure_4',
-    #     conditions=None,
-    #     x_max=100,
-    #     show_diagonal=False,
-    #     x_scale='count',
-    #     show_average=True,
-    #     figsize=(3.2, 2.0),
-    #     fontsize=9,
-    #     show_title=False,
-    #     show_legend=True,
-    #     out_format='pdf',
-    # )
+    # Figure 4 — 8-panel aggregate recall figure for thesis
+    # figsize matches the ~3.2 in render width (0.48 * 6.3 in A4 textwidth)
+    # fontsize=8 renders at ~8 pt in the final PDF (no rescaling needed)
+    recall_plot(
+        data_dir=RUN_01_DIR,
+        out_dir=Path(r'C:\Users\timov\Desktop\Utrecht\Utrecht\MSBBSS\thesis_timo\Report\results\aggregate_recall_plots'),
+        source_dir=SOURCE_DIR,
+        datasets=ALL_DATASETS,
+        out_name='figure_4',
+        conditions=None,
+        x_max=100,
+        show_diagonal=False,
+        x_scale='count',
+        show_average=True,
+        figsize=(3.2, 2.0),
+        fontsize=9,
+        show_title=False,
+        show_legend=True,
+        out_format='pdf',
+    )
