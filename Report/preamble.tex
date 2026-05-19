@@ -1,0 +1,62 @@
+% preamble.tex
+\usepackage[a4paper, margin=2.5cm]{geometry}  % Page size & margins
+\usepackage{graphicx}   % Figures
+\usepackage{subcaption} % Defines the subfigure environment
+\usepackage{booktabs}   % Professional tables
+\usepackage{amsmath}    % Math symbols & equations
+\usepackage{amssymb}    % More math symbols
+\usepackage{hyperref}   % Hyperlinks
+\usepackage[hypcap=true]{caption} % Fixes hyperlinking to figures
+\usepackage{cleveref}   % Smart references
+\usepackage{enumitem}   % Customizable lists
+\usepackage{float}      % Better table/figure placement
+\usepackage[utf8]{inputenc}  % Ensure Overleaf uses UTF-8 encoding
+\usepackage{csquotes}   % Improved quotation formatting
+\usepackage{tabularx}
+\usepackage{tabularray}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+\usepackage{pgfplotstable,siunitx,xfp}
+\pgfplotsset{compat=1.18}
+\usepackage{siunitx}   % \num, rounding/formatting
+\usepackage{xfp}       % or expl3; xfp gives \fpeval
+\usepackage{titling} 
+\usepackage{verbatim} % for \verbatiminput
+\usepackage{catchfile}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{setspace}
+\usepackage{mdframed}
+\usepackage{tcolorbox}
+\usepackage{placeins}
+% \usepackage[sortcites, style=apa]{biblatex}
+
+
+% % Bibliography
+\usepackage[backend=biber, style=authoryear, sorting=nyt, sortcites]{biblatex}  
+\addbibresource{references.bib}  % Link to your Zotero export
+
+% Section number depth
+\setcounter{secnumdepth}{3}
+
+% Table & figure captions
+\usepackage[labelfont=bf]{caption}  
+
+ % Word count command
+\newcommand{\wordcount}{%
+  % Run texcount on the main document (jobname.tex)
+  %  - stdout -> \jobname.wc
+  %  - stderr (warnings) -> nul (ignored)
+  \immediate\write18{texcount -inc -sum -0 -template={SUM} \jobname.tex > \jobname.wc 2> nul}%
+  % Read the result from the temporary file:
+  \CatchFileDef{\wcresult}{\jobname.wc}{}%
+  \mbox{\wcresult\unskip}%
+}
+
+
+
+
+
+
+

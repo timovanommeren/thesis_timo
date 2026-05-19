@@ -1,6 +1,45 @@
 .venv/
+.env
+
+
 Articles/
 Thomas_EUDA/
-asreview-makita/
-Synergy/
-.env
+data/
+notebooks/
+Mini_thesis.pdf
+
+# remove the results of simulations
+simulation_results/*
+
+
+# remove all files in Report/ except the files and folders listed below
+Report/*
+Report/results
+
+# latex files to keep
+!Report/main.tex
+!Report/main.pdf
+!Report/preamble.tex
+!Report/titlepage.tex
+!Report/results_paragraph.tex
+!Report/references.bib
+
+# folders to keep
+!Report/vector_space/
+!Report/images/
+
+# Python artifacts
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Claude Code internal state
+.claude/
+**/.claude/
+
+# Rstudio files
+.Rproj.user/
+.Rhistory
+**/.Rhistory
+.RData
+.Ruserdata

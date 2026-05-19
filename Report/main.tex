@@ -1,0 +1,628 @@
+% main.tex
+\documentclass[12pt]{article}
+
+
+
+% Import formatting & packages
+\input{preamble}
+
+% Auto-generated values from R
+\input{values}
+
+
+\begin{document}
+
+\include{titlepage}
+
+\section{Introduction}
+
+\subsection{AI-assisted systematic reviews}
+
+Systematic reviews are a cornerstone of evidence-based practice, providing comprehensive and unbiased syntheses of existing research on a given topic \parencite{brignardello2025systematic}. However, systematically reviewing large bodies of literature can be time-consuming. In particular, screening titles and abstracts to identify relevant papers can be a major bottleneck limiting the practical applicability of systematic reviews \parencite{nussbaumer2021resource, bastian2010seventy, borah2017analysis}.
+
+Fortunately, recent advances in machine learning have produced tools that assist researchers in screening papers by prioritizing the most relevant papers for screening first \parencite{van2021open, ouzzani2016rayyan, ge2024leveraging, dos2023usefulness}. One such tool is \textit{ASReview}, an open-source software package for artificial intelligence (AI)-assisted systematic reviews \parencite{van2021open, asreviewvs2jonathan}. ASReview uses active learning models to iteratively learn from the user's screening decisions and adaptively prioritise the most relevant papers for screening. Consequently, only a fraction of the papers returned by a systematic search need be screened to identify all the relevant ones (see \autoref{figure_1}). 
+
+Needless to say, there is always the possibility that a paper that was not screened would have been deemed relevant had it been screened. However, AI-assisted screening increases efficiency, enabling more papers to be retrieved and screened from a systematic search. Furthermore, reducing the total number of papers that need to be screened decreases the likelihood of a relevant paper being overlooked due to screening fatigue \parencite{wang2020error, neelemanupdated, cai2025authority}. Therefore, compared to manual screening, AI-assisted screening can increase the number of relevant papers included in a systematic review \parencite{ferdinands2023performance, van2025hunt}, while reducing the time and effort required \parencite{teijema2025large, nussbaumer2021resource, borah2017analysis}. 
+
+\begin{figure} [b!]
+  \centering
+  \includegraphics[width=0.9\textwidth]{results/figure_1_Appenzeller-Herzog_2019.pdf}
+  \caption{A recall plot showing the number of relevant papers found by the number of papers screened, comparing \textcolor[rgb]{0.000,0.620,0.451}{AI-assisted screening} to a \textcolor[rgb]{0.902,0.624,0.000}{AI-assisted screening with a cold start}, as well as to \textbf{\textcolor[rgb]{0.3,0.3,0.3}{manual screening}}. The location on the x-axis when the cold start curve starts to increase on the y-axis is the moment the first relevant papers has been identified through manual screening. The plot shows the simulated screening of the systematic review by \textit{Appenzeller-Herzog\_2019}. When a relevant paper is used to train ASReview before screening, this paper can no longer be found during screening, which is why one less relevant paper is found during screening, compared to when no papers are used to train ASReview before screening (i.e., a cold start). Please also note that the last relevant paper found does not have an abstract, which is why the paper was found only after screening almost all other papers.}
+  \label{figure_1}
+\end{figure}
+
+
+
+
+\subsection{The cold start problem}
+
+The active learning models used by ASReview adaptively prioritise the most relevant papers for screening based on the user's decisions. A training set of at least one relevant paper and one irrelevant paper is required by ASReview before screening begins to sort papers by relevance from the first paper screened. Otherwise, users will be presented with papers at random until at least one pair of relevant and irrelevant papers has been identified through manual screening (see \autoref{figure_1}). This is known as the \textbf{cold start problem}\footnote{The cold start problem is studied in the literature on active learning and recommender systems, see \cite{panda2022approaches}}.
+
+{\looseness=-1
+In practice, since only a fraction of papers retrieved from a systematic search are relevant, the problem comes down to identifying the first relevant paper as quickly as possible. The most straightforward solution is to manually screen papers until a relevant one is found. However, if the percentage of relevant papers returned by a systematic search is low, a large number of papers may need to be screened manually. (See \autoref{tab:SYNERGY} for these percentages for the 23 published systematic reviews we will be used to simulate screening.) 
+\par}
+
+Nevertheless, beginning with manual screening does not affect the total number of papers that must be screened to identify all the relevant ones (\cite{oude2023can}; or, in practice, until a stopping rule is reached, see \cite{boetje2024safe, bron2025using}). Therefore, in most situations, manually screening papers until the first relevant papers is found is sufficient. 
+
+However, in some situations, it isn’t possible to keep screening until all relevant papers have been identified. For example, due to limited time from supervisors or other stakeholders. In this case manual screening is not a sufficient solution, since screening with adaptively prioritized papers from the very start of screening can increase the number of relevant papers identified in a limited number of papers screened. We may thus define the scope of the problem more precisely:
+
+\begin{mdframed}[linewidth=3pt, linecolor=black, 
+                 topline=false, bottomline=false, rightline=false,
+                 innerleftmargin=10pt]
+\textbf{Problem statement:} The cold start problem poses a practical barrier to AI-assisted screening when (1) no relevant papers are available before the start of screening, and (2) a limited number of papers can be screened.
+\end{mdframed}
+
+\begin{tcolorbox}[colback=gray!8, colframe=gray!40, fonttitle=\bfseries\small,
+    title= Box 1. An applied example of the cold start problem., boxrule=0.4pt, left=6pt, right=6pt, top=4pt, bottom=4pt, coltitle=black]
+  During the corona crisis, timely decisions were crucial in mitigating the effects of the pandemic. Some rapid reviews reportedly took just 10 days, or even a few hours to complete \parencite{tricco2020rapid}. Furthermore, what constituted as relevant continually shifted during the pandemic. At the start, for instance, experts had to rely on evidence from case studies and research into other pandemics and respiratory diseases \parencite{brooks2020psychological, kurzer2023follow}. Consequently, experts may have used outdated literature to train the AI model before screening, or spent valuable time consulting other experts to identify more recent literature. See \autoref{sec: discussion} for a full discussion of these issues.
+\end{tcolorbox}
+
+
+
+% For example: At the outset of a crisis, little may be known about the problem at hand, meaning no relevant papers will be available before the start of screening. Consequently, screening will need to be manual until the first relevant paper is identified. However, as time is of the essence during a crisis, a limited number of papers will be screenable. Therefore, during a crisis, manual screening is an insufficient solution to the cold start problem. 
+
+% For instance, during the Coronavirus pandemic, timely decisions were crucial in mitigating its effects. The first systematic review on the possible effects of long-term quarantine was published in the Lancet by \cite{brooks2020psychological} as early as March 2020. Some rapid reviews reportedly took just 10 days, or even a few hours, to complete (\cite{tricco2020rapid}; for an introduction to rapid reviews, see \cite{garritty2025rapid, haby2024best, smela2023rapid}). 
+
+% Moreover, at the start of the pandemic, little was specifically known about the SARS-CoV-2 virus. Consequently, experts had to rely on evidence from case studies and research into other pandemics and respiratory diseases \parencite{brooks2020psychological, kurzer2023follow}. Therefore, it may have been difficult to quickly determine which literature was most applicable to the pandemic. Starting AI-assisted screening with unrepresentative example papers may result in the identification of less relevant papers (see \autoref{sec: discussion}). Consequently, experts would have had to spend valuable time identifying the optimal paper(s) before commencing screening, or begin by manually screening papers. 
+
+
+
+
+% Therefore, it may have been difficult to quickly determine which literature was most applicable to the pandemic. Starting AI-assisted screening with unrepresentative example papers may result in the identification of less relevant papers (see ). Consequently, experts would have had to spend valuable time identifying the optimal paper(s) before commencing screening, or begin by manually screening papers. 
+
+% During the COVID-19 pandemic, some rapid reviews were completed within days 
+% \parencite{tricco2020rapid}. At the same time, no directly applicable prior literature 
+% existed, as experts had to rely on evidence from other pandemics and respiratory diseases 
+% \parencite{brooks2020psychological}. This illustrates both conditions of the problem 
+% statement: the absence of relevant prior literature and the pressure of a limited 
+% screening window.
+
+% The first systematic review on the possible effects of long-term quarantine was published in the Lancet by \cite{brooks2020psychological} as early as March 2020.
+
+
+
+
+% \begin{tcolorbox}[colback=gray!10, colframe=gray!50]
+% \textbf{Problem statement:} The cold start problem poses a practical barrier to AI-assisted screening when (1) no relevant papers are available before starting screening, and (2) adequate starting performance is crucial.
+% \end{tcolorbox}
+
+
+% \subsection{The niche: rapid reviews in times of crisis}
+
+% One setting in which AI-assisted screening may be necessary from the very start of screening, and no relevant records are available, is when conducting rapid reviews in times of crisis (for an introduction to rapid reviews, see \cite{garritty2025rapid, haby2024best, smela2023rapid}). For example, during the COVID-19 pandemic some rapid reviews were reportedly conducted within 10 days and some even within a few hours \parencite{tricco2020rapid}. This means that during a crisis situations it may not be possible to continue screening until all relevant records have been found (deciding when to stop screening when using AI is a non-trivial problem in and of itself, see \cite{boetje2024safe, bron2025using}). Evidently, in this case it is desirable to have AI-assisted screening from the very start. 
+
+% Yet during a crisis situation no examples of relevant records may be available before the start of screening. At the beginning of the pandemic, for example, experts had to rely on indirect evidence from other pandemics and respiratory diseases \parencite{kurzer2023follow, brooks2020psychological}. In this case, indirect evidence may be used to initialize the AI-model to have AI-assisted screening from the very start. However, this may cause the screener to become stuck on an unrepresentative subset of the relevant papers (a similar phenomenon has been noted in computational psychiatry, \cite{rosbach2026stuck}). That is, literature directly applicable to the problem at hand may be available, but, becuase the screener is unaware of this fact they may end up in what we may call an \textbf{epistemic ecochamber}. 
+
+% Therefore, the quality of rapid reviews in times of crisis could be improved by developing an approach which initializes AI-assisted screening tools without the use of any existing literature. 
+
+% A rapid review is a quicker alternative to a systematic review, but is less rigorous and complete \parencite{haby2024best, smela2023rapid, tricco2015scoping}. For example, a rapid review may search fewer databases, restrict searches to particular languages and dates, and employ single-reviewer screening. These adjustments increase the speed of a review, but also the risk of bias \parencite{tricco2017rapid, kelly2016quality, marshall2019rapid}. 
+
+% The risk of bias is particularly present if there is time pressure from stake-holders. During the COVID-19 pandemic, for example, some rapid reviews were reportedly conducted within 10 days and some even within a few hours (\cite{tricco2020rapid}, compared to the usual 1-6 months advised by \cite{garritty2025rapid} and average 3.2 months found by \cite{abou2016methods}). The increased time pressure was partially adressed by the use of AI-assisted screening tools \parencite{fdAIprogrammaUtrecht}. However, whether this biased the conclusions of the resulting reviews is unclear \parencite{haby2024best, tricco2020rapid}.
+
+% One source of bias may have been the examples (or lack thereof) used to train the AI-model before the start of screening. In emerging health crises such as the COVID-19 pandemic it may not be clear what constitutes as relevant evidence. For instance, at the beginning of the pandemic, experts had to rely on indirect evidence from other pandemics and respiratory diseases \parencite{kurzer2023follow, brooks2020psychological}. This may have resulted in one of two scenarios: either no examples were used to train the AI model before screening, which limited the total number of relevant papers found and potentially biased the results, or unrepresentative previous research was used to train the AI model before screening, leading to an unrepresentative subset of relevant papers being found and thereby biasing the results \parencite{rosbach2026stuck}.
+
+
+
+
+
+\subsection{Mitigating a cold start without relevant papers}
+
+If only a limited number of papers can be screened, manually screening until the first relevant paper is found is an insufficient solution to the cold start problem. A better solution may be to train the AI model using other texts relevant to the systematic review before screening. Fortunately, texts that define what constitutes a relevant or irrelevant abstract for a systematic review are already part of standard review workflows. Before screening begins, researchers must clearly define \textbf{the eligibility criteria} for including or excluding a paper from a review \parencite{cochraneChapterDefining}. Therefore, one possible solution to the cold start problem may be to use these eligibility criteria to train the AI model before screening.
+
+% Another possible solution to the cold start problem is to use large language models (LLMs) to generate text relevant to the systematic review in question. This generated text can then be used to train the AI model before screening. For instance, an LLM could be given the eligibility criteria and asked to generate an (hallucinated) title and abstract of a relevant paper. Training the AI model with this title-abstract pair before screening may result in a greater number of relevant papers being identified among a limited number of screened papers (see \cite{zhang2025cold, bachmann2025adaptive} for examples of the use of LLMs to mitigate the cold start problem in other fields). However, the stochastic nature of LLMs makes it difficult to reproduce their results, which is why they should be used with caution in standard systematic review workflows .
+
+
+Another possible solution to the cold start problem may be to use large language models (LLMs) to generate text relevant to the systematic review in question. This text could then be used to train the AI model before screening. For instance, an LLM could be given the eligibility criteria and asked to produce an (hallucinated) title and abstract for a relevant paper. Training the AI model on this title-abstract pair before screening could result in a greater number of relevant papers being found within a limited number of papers screened (see \cite{zhang2025cold, bachmann2025adaptive} for examples of the use of LLMs to mitigate the cold start problem in other fields). However, LLMs are stochastic by nature, which makes it difficult to reproduce their results. Therefore, caution should be exercised when applying them to standard systematic review workflows \parencite{gartlehner2025responsible}.
+
+% \subsection{Objectives}
+
+% Given the problem and proposed solution above, the main goals of the present study are to investigate whether:
+
+% \begin{enumerate}
+%   \item The number of relevant papers found at the start of AI-assisted screening can be increased by providing a systematic review’s eligibility criteria as an example of a relevant abstract compared to providing no examples at all (i.e. a cold start). 
+%   \item The number of relevant papers found at the start of AI-assisted screening can be increased further providing an (hallucinated) title-abstract pair generated by an LLM based on a systematic review’s eligibility criteria.
+% \end{enumerate}
+
+
+
+
+
+
+
+
+
+
+% \subsection{Mitigating a cold start without relevant papers}
+
+% If a limited number of papers can be screened, starting by manually screening until the first relevant paper has been identified is an insufficient solution to the cold start problem. An alternative solution to the cold start problem may be to train the AI model before screening on other texts relevant to the systematic review at hand, in lieu of actual relevant papers. Fortunately, within standard systematic review workflows, such texts are already constructed before screening \parencite{cochraneChapterDefining}. Namely, researchers are expected to clearly define the criteria for including or excluding a paper from a review before screening: the \textbf{eligibility criteria}. Therefore, a possible to the cold start problem is to use a systematic review's eligibility criteria to train the AI-model before screening. 
+
+% Another solution to the cold start problem is to consult a large language models (LLMs) to generate text relevant to the systematic review at hand, and use the generated text to train the AI-model before screening. LLMs have been trained on vast amounts of text, including most scientific literature. Therefore, LLMs may be able to supplement the eligibility criteria by leveraging its training data \parencite{zhang2025cold, bachmann2025adaptive}. However, the use LLMs may also add unncessary steps or add unwanted noise \parencite{gartlehner2025responsible, sollini2025human}.
+
+
+
+
+
+
+
+\subsection{Objectives}
+
+The current study aims to address the cold start problem in AI-assisted systematic reviews. This will be done by simulating AI-assisted screening of published systematic reviews using different starting conditions. Specifically, the aim is to compare \textbf{the number of relevant papers found within the first 100 screened}, when: 
+
+\begin{enumerate}
+  \item \textbf{(A)} screening is done manually until the first relevant paper is found 
+        (i.e., a cold start) \textit{versus} \textbf{(B)} the AI model has been trained 
+        on the eligibility criteria of a systematic review; and
+  \item \textbf{(B)} the AI model has been trained on the eligibility criteria 
+        \textit{versus} \textbf{(C)} the AI model has been trained on an (hallucinated) 
+        title-abstract pair generated by an LLM based on the eligibility criteria.
+\end{enumerate}
+
+
+
+\newpage
+
+\section{Methodology}
+
+To address the research questions above, we will simulate the screening of papers of published systematic reviews using ASReview. Specifically, we will use 23 systematic reviews from the SYNERGY datasets \parencite{de2023synergy}. These datasets contain the titles and abstracts of all the papers screened by the authors of systematic reviews conducted without the use of AI-assisted screening. Therefore, all papers have been given a relevance label (0 or 1), which allows us to simulate the same screening decisions but with the help of ASReview (for similar simulation studies see \cite{teijema2025large, byrne2024impact, ferdinands2023performance}). See \autoref{tab:SYNERGY} for the metadata of each systematic review (e.g., number of papers screened and percentage of relevant papers).
+
+\subsection{Simulation design}
+
+AI-assisted screening will be simulated using ASReview's Python API \parencite{asreviewlab}. All code for the simulations and analyses will be made available on GitHub (see \cite{vanommeren2025coldstart}). Four different starting conditions will be compared. The three mentioned in the objectives above, as well as when training the AI-model on a real relevant paper before screening. For clarity, the four starting conditions are presented in a point-wise manner here:
+
+\begin{enumerate}[label=\textbf{\Alph*.}]
+    \item \textit{Cold start} — no paper is provided before screening; screening is manual until the first relevant paper is randomly found, at which point ASReview start adaptively prioritizing relevant papers first.
+    \item \textit{Eligibility criteria} — the inclusion and exclusion criteria of the systematic review are provided directly to ASReview as an example of a \textit{relevant paper}. ASReview will then prioritize papers by relevance from the very first paper screened, based on the provided criteria.
+    \item \textit{LLM-generated} — the eligibility criteria are passed to GPT-4o-mini\footnote{OpenAI's gpt-4o-mini model is instructed via a DSPY module for dynamic prompt generation in each run \parencite{khattab2023dspy}}, which is prompted to generate an (hallucinated) title and abstract of a plausibly relevant paper. This title-abstract pair is then provided to as an example of a relevant paper to ASReview. A new title-abstract pair is generated in each simulation run. 
+    \item \textit{Real paper} — one paper from the set of all relevant papers is sampled (with replacement across runs). The title and abstract of this paper are then provided to ASReview as an example of a relevant paper.
+\end{enumerate}
+
+Since each systematic reviews has one set of eligibility criteria only, in this starting condition the AI-model will be trained on the same text in each simulation run. This is contrast to the other three conditions where the AI-model is trained on different text in each run. To ensure variability between the runs in the eligibility criteria condition, the eligibility criteria are provided as an example of a relevant paper only. Therefore, papers will technically be randomly screening until the first \textit{irrelevant} papers is found. In practice however the first paper randomly screened is almost always irrelevant, so ASReview will adaptively prioritize papers from the second paper screened onwards. The configuration used by ASReview across all conditions is the U4 configuration (see \cite{asreviewvs2jonathan} for a detailed description of the U4 configuration).
+
+The four starting conditions will be compared on the number of relevant papers found within the first 100 papers screened. To ensure a straightforward comparison between the conditions, the same number of simulation runs will be conducted for each condition and systematic review. In other words, we have a balanced design. To be precise, for each of the 23 systematic reviews, screening will be simulated 270 times for each of the four starting conditions for a total of 1080 runs per systematic review. 
+
+% The number of simulation runs is chosen because 3 types of LLM settings are varied over 3 levels (i.e., 3 $\times$ 3 $\times$ 3 = 27) and this will be replicated 10 times (27 $\times$ 10 = 270). To maintain a balanced design the same number of runs will also be conducted for the other three starting conditions. 
+
+% The three LLM settings are: the number of relevant abstract generated (1, 4, 7), the instructed length of the abstract (100, 500, 900) and the temperature setting of the LLM (0.0, 0.4, 0.8). The effect of the LLM settings on the number of relevant papers found will be discussed in appendix A.
+
+% Conditions A and B constitute the experimental manipulations of interest, while C serves as the primary contrast and D as an upper-bound reference.
+
+% As described above, the first type of starting condition uses the (A) \textit{eligibility-criteria} of the systematic review directly as an example of an abstract of a relevant paper with which to initialise ASReview. In the second starting condition the eligibility criteria are provided to (B) an \textit{LLM} first. To be precise, OpenAI's GPT-4o-mini model is prompted to generate an (hallicunated) title and abstract pair of a relevant paper based on the eligibility criteria\footnote{OpenAI's gpt-4o-mini model is instructed via a DSPY module for dynamic prompt generation in each run \parencite{khattab2023dspy}}. This title and abstract are then provided to ASReview as an example of a relevant paper.
+
+% The two types of starting conditions described above are compared to two other starting conditions. The first is the contrast of interest: a (C) \textit{cold-start}, in which case no papers are provided to ASReview before to the start of screening. The last type of starting condition uses an \textit{actual paper} as an example. Specifically, one relevant paper is sampled from the set of papers labeled as relevant to the systematic review at hand (with replacement between runs) and provided to ASReview before screening.
+
+% Finally, the eligibility criteria of the systematic reviews are manually manipulated in several ways to investigate whether this affects starting performance. Specifically, the alterations made are: the presence of exclusion criteria, expansion of abbreviations, and expansion of generic terms using MeSH\footnote{For example, "rodents" may be expanded to include hyponyms such as "mice" and "rats", and "Wilson's disease" to include synonyms such as "Progressive Lenticular Degeneration"}. 
+
+% Before conducting a full simulation study, some exploratory simulations will be conducted which screen \textit{all} the papers from the Appenzeller-Herzog\_2019 and Brouwer\_2019 datasets only. 
+
+
+\subsection{Analysis plan}
+
+% ---- OLD ANALYSIS PLAN (commented out) ----
+% At the end of the simulations, recall plots will be created to visually compare the number of relevant papers found by the number of papers screened between the four starting conditions for each systematic review. These plots will show the recall curves of individual run per condition with a transparency of 0.07, as well as the average recall curve per condition which will be shown as bold-dashed lines.
+%
+% Furthermore, a single dataset summarizing the simulation results will be exported to be analysed in R. Specifically, the number of relevant papers found within the first 100 papers screened will be extracted for each run, thereby creating a single dataset of 24840 rows (1080 runs $\times$ 23 systematic reviews) and the following columns: the number of relevant papers found within the first 100 papers screened, the total number of papers screened, and the starting condition. The total number of papers screened is included because in some runs all relevant papers may be found before 100 papers are screened, which would result in a premature stop of screening. Therefore, the total number of papers screened will be included as a covariate in the analysis to account for this variability between runs.
+%
+% To compare the average number of relevant papers found per starting condition between dataset a spaghetti plot will be created, with each line corresponding to a dataset and ordered by the percentage of relevant papers in each dataset. Furthermore, to compare the average number of relevant papers found per starting condition while controlling for variability between dataset; a dummy variable controlling baseline differences between the datasets in the number of relevant papers found will be regressed upon the four starting conditions, together with the total number of papers screened. The resulting model-predicted number of relevant papers found per starting condition will be re-estimated 10,000 times creating bootstrapped standard errors. The average model-predicted number of relevant papers found per starting condition will then be plotted with bootstrapped 95\% confidence intervals.
+%
+% To account for the fact in some runs less than a 100 papers may be, the total number of papers screened will be included in the model. Furthermore, it is expected that most of the variance in starting performance will be explained by differences in performance of ASReview between systematic reviews \parencite{teijema2025large}. Therefore, a dummy variable controlling differences between the simulated systematic reviews will also be included in the model. Finally, an additional analysis will be conducted to explore the impact of manually manipulating the eligibility criteria. Some initial simulations comparing overall performance were also conducted.
+% ---- END OLD ANALYSIS PLAN ----
+
+For each systematic review, recall plots will be created to visually compare the four starting conditions. These plots show the number of relevant papers found by the number of papers screened. Individual simulation runs are plotted per condition (with a transparency of 0.07) alongside the average recall curve per condition (shown as a bold dashed line). In addition, a spaghetti plot will be created to compare the mean number of relevant papers found per starting condition across the 23 systematic reviews, with each line corresponding to one systematic review.
+
+The outcome of each simulation run is the number of relevant papers found within the first 100 papers screened. This yields a dataset of 24,840 observations (1,080 runs $\times$ 23 systematic reviews). A linear regression model (OLS) will be fitted to this outcome with three predictors: starting condition (coded without intercept, so that each condition coefficient directly estimates the covariate-adjusted group mean), a dummy variable for each systematic review, and the total number of papers screened in a given run. The dummy controlling for baseline differences between the datasets is included. The total number of papers screened is included because in some runs all relevant papers are found before 100 papers have been screened, in which case screening terminates early. 
+
+OLS was chosen for its interpretability. Although the bounded, count-like nature of the outcome means a model such as binomial regression might be more appropriate, OLS remains consistent under potential violations such as heteroscedastic residuals. However, efficiency is affected. Therefore, confidence intervals and non-parametric p-values were estimated using a pairs bootstrap (B = 10,000 resamples).   
+
+From this model, the estimated mean number of relevant papers found is extracted for each starting condition. These condition means are plotted with bootstrapped 95\% confidence intervals. The two pairwise comparisons of primary interest: (1) cold start versus eligibility criteria, and (2) eligibility criteria versus LLM-generated, will be highlighted in the plot and reported in text with their corresponding confidence intervals and non-parametric p-values. 
+
+
+
+\section{Results}
+
+
+
+\begin{figure}[p]
+  \centering
+  \captionsetup[subfigure]{skip=2pt, font=footnotesize}
+
+  % Row 1
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Appenzeller-Herzog_2019.pdf}
+    \caption{Appenzeller-Herzog (2019)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Brouwer_2019.pdf}
+    \caption{Brouwer (2019)}
+  \end{subfigure}
+
+  \par\vspace{4pt}
+
+  % Row 2
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Leenaars_2019.pdf}
+    \caption{Leenaars (2019)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Menon_2022.pdf}
+    \caption{Menon (2022)}
+  \end{subfigure}
+
+  \par\vspace{4pt}
+
+  % Row 3
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Muthu_2021.pdf}
+    \caption{Muthu (2021)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Nelson_2002.pdf}
+    \caption{Nelson (2002)}
+  \end{subfigure}
+
+  \par\vspace{4pt}
+
+  % Row 4
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Radjenovic_2013.pdf}
+    \caption{Radjenovic (2013)}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \includegraphics[width=\linewidth]{results/aggregate_recall_plots/figure_4_Walker_2018.pdf}
+    \caption{Walker (2018)}
+  \end{subfigure}
+
+  \caption{The recall curves for eight systematic reviews demonstrating
+    substantial between-dataset variability. Thin lines show individual simulation
+    runs; bold dashed lines show the condition mean. Colours indicate initialisation
+    condition:
+    \textcolor[rgb]{0.902,0.624,0.000}{cold start},
+    \textcolor[rgb]{0.835,0.369,0.000}{eligibility criteria},
+    \textcolor[rgb]{0.000,0.447,0.698}{LLM}, and
+    \textcolor[rgb]{0.000,0.620,0.451}{actual paper}.}
+  \label{fig:aggregate-recall-plots}
+\end{figure}
+
+\input{results/bootstrap_results.tex}
+
+
+
+% Runs showed a clear difference in the number of relevant papers found within the first 100 papers screened between when no examples of relevant papers were provided before the start of screening (i.e., a cold start) and the other three starting conditions (see \autoref{figure_2}). However, no clear differences between the other three conditions were apparent. There also appeared to be large differences in the number of relevant papers found between runs, in particular when no examples of relevant papers were provided before the start of screening. 
+
+% Finally, screening was simulated 27 times for each of the 4 starting conditions for all the 21 systematic reviews in the SYNERGY dataset. For 6 of these systematic reviews, the resulting recall plots are shown in \autoref{fig:aggregate-recall-plots}. The plots demonstrate the heterogeneity in both the average and variance of screening performance across the systematic reviews. Some plots, such as Leenaars\_2020, show little average difference between the four conditions, while others, such as Radjenovic\_2013, show a clear difference. Similarly, some plots, such as Nelson\_2002, show little variance, while others, such as Muthu\_2021, show considerable variance. Finally, some plots, such as Brouwer\_2019, show that beginning with an actual paper before screening can result in outliers, with significantly fewer relevant papers being identified than when usually starting with an actual paper when screening for that systematic review. 
+
+% The MODEL RESULTS OF THE SPECIFIC COMPARISONS
+
+
+% \begin{figure}
+%   \centering
+%   \begin{subfigure}[t]{0.48\textwidth}
+%       \centering
+%       \includegraphics[width=1\linewidth]{results/figure_2_Appenzeller-Herzog\_2019.png}
+%       \caption{Appenzeller-Herzog\_2019}
+%       \label{fig:full-recall-plot-appelneller-herzog}
+% %\clearpage
+%   \end{subfigure}
+%   \hfill
+%   \begin{subfigure}[t]{0.48\textwidth}
+%       \centering
+%       \includegraphics[width=1\linewidth]{results/figure_2_Brouwer\_2019.png}
+%       \caption{Brouwer\_2019}
+%       \label{fig:full-recall-plot-brouwer}
+%   \end{subfigure}
+%   \caption{Randomly chosen runs of AI-assisted simulated screening of Appenzeller-Herzog\_2019 (left) and Brouwer\_2019 (right).}
+%   \label{figure_2}
+% \end{figure}
+
+
+
+
+
+
+
+% \begin{figure}[htbp]
+%   \centering
+%   \captionsetup[subfigure]{skip=2pt, font=footnotesize}
+%   \begin{subfigure}[t]{0.48\textwidth}
+%     \includegraphics[width=\linewidth]{results/individual_runs/individual_runs/Appenzeller-Herzog_2019/figure_3_run_1_IVs_1_100_0.0.pdf}
+%     \caption{Appenzeller-Herzog (2019)}
+%     \label{fig:recall-plot-appenzeller-herzog}
+%   \end{subfigure}\hfill
+%   \begin{subfigure}[t]{0.48\textwidth}
+%     \includegraphics[width=\linewidth]{results/individual_runs/individual_runs/Brouwer_2019/figure_3_run_1_IVs_1_100_0.0.pdf}
+%     \caption{Brouwer (2019)}
+%     \label{fig:recall-plot-brouwer}
+%   \end{subfigure}
+
+%   \caption{A recall plot showing the number of relevant papers found by the number of papers screened, comparing the four starting conditions:
+%     \textcolor[rgb]{0.902,0.624,0.000}{cold start},
+%     \textcolor[rgb]{0.835,0.369,0.000}{eligibility criteria},
+%     \textcolor[rgb]{0.000,0.447,0.698}{LLM}, and
+%     \textcolor[rgb]{0.000,0.620,0.451}{actual paper}. 
+%     The two plots shown are of the Appenzeller-Herzog\_2019 (left) and Brouwer\_2019 (right) datasets.
+%     }
+%   \label{figure_2}
+% \end{figure}
+
+
+
+
+\begin{figure}[htbp]
+  \centering
+
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{../Report/results/spaghetti_dataset_means.pdf}
+    \caption{Mean number of relevant papers found per dataset across conditions. Each line
+      represents one of the 23 systematic reviews. In the legend the total number and percentage of relevant papers in each dataset is shown.}
+    \label{fig:means-per-dataset}
+  \end{subfigure}
+
+  \vspace{0.8em}
+
+  \begin{subfigure}{\textwidth}
+    \centering
+    \includegraphics[width=0.72\textwidth]{../Report/results/condition_means_annotated.pdf}
+    \caption{Model-estimated condition means after controlling for dataset ($\eta^2_p = \petacondition$).
+      Diamonds ($\blacklozenge$) denote model-estimated means; error bars show 95\%
+      bootstrapped confidence intervals. Brackets indicate the two pairwise comparisons
+      of primary interest.}
+    \label{fig:model-predicted-means}
+  \end{subfigure}
+
+  \caption{Number of relevant papers found across four initialisation conditions.}
+  \label{fig:main-results}
+\end{figure}
+
+
+
+
+
+%This section will discuss the mean number of model predicted papers found in each condition, as well as discuss whether there are significant differences between the cold start condition and the LLM and criteria-only condition, and whether there is a significant diffeence between the LLM condition and the criteria only condition. 
+
+
+% \subsection{Additional analysis on using eligibility criteria as prior}
+
+% One alinea reporting the results of manually manipulating / enriching the elgibility criteria.
+
+
+% \begin{enumerate}
+%     \item The large heterogeneity between the systematic reviews screened show:
+%     \begin{enumerate}
+%         \item that the cold start problem depends on the percentage of relevant papers in the pool. For example, 21.9\% of the papers screened by Nelson\_2002 were relevant, meaning that on average a relevant paper will be identified within 5 papers screened. In contrast only 0.2\% of the papers screened by Brouwer\_2019 were relevant, meaning that an average of one relevant paper will be identified within the first 500 papers screened. Accordingly, a large difference between a cold start and the other three starting conditions is apparent for Brouwer\_2019, while for Nelson\_2002 there isn't.
+%         \item There are notable differences between the systematic reviews in the number of relevant papers found when using the eligibility criteria of a systematic review compared to using an actual paper. When screening the papers by Radjenovic\_2013 using the eligility criteria to initliaze the AI-model, zero relevant papers were found (25 were found on average when using an actual paper), compared to 80 relevant papers for Walker\_2018 (50 were found on average when using an average paper). 
+%         \item Similarly, there are a few notable differences between the systematic in the number of relevant papers found when using the eligibility criteria directly, versus generating an (hallicunated) title and abstract using an LLM first. For many systematic reviews these two starting conditions appear quite similiar. The average Appenzeller-Herzog\_2019 run when using an LLM looks like a smoothed version of when using the eligilibity criteria (with more variability too). This would fit with the conclusion that the LLM usually does not add information but simply changes the formatting. However, as mentioned above, there are a few notable differences between these conditions. For example, for Muthu\_2021 less papers were found when using an LLM. Conversly, Menon\_2022 using an LLM-generated abstract leads to more relevant papers found on average. This might be because the generic independent variable "non-acute, non-communicable, environmental exposure" is given concrete examples by the LLM such as "air pollution" (see \autoref{sec: LLM generated abstracts}) for the eligibility criteria and an example of an LLM-generated abstract).
+%         \item This brings us to another point. There are also differences in the variance of the number of papers found when using an actual paper between the systematic reviews. There is great variability in Walker (2018), and little variability in Leenaars\_2020. Sometimes particular papers also appear to be significantly worse at initializing the AI-model. For Brouwer\_2019 for example there appears to be one paper which leads to significantly less papers retrieved than the other papers. This paper is thus likely unrepresentative 
+%     \end{enumerate}
+% \end{enumerate}
+
+
+
+\section{Discussion}
+\label{sec: discussion}
+
+A factor limiting the practical application of AI-assisted systematic reviews is the `cold start' problem. This means that AI-assisted screening tools such as ASReview require examples of relevant literature before screening to order papers by relevance from the first paper screened. 
+
+
+More specifically, AI-assisted screening tools such as ASReview require examples of relevant literature before screening to . The practical use of AI-assisted screening tools is therefore limited in settings where (1) no examples of relevant literature are available before the start ofscreening and (2) a limited number of papers can be screened. One example of such a setting is a crisis situation such as COVID-19, in which there is a small and rapidly shifting evidence base and timely evidence synthesis is crucial. 
+
+In the case that one relevant paper is available before the start of screening, there are several reasons why it is not optimal to use this paper before screening. This first reason is that the relevant paper may be used to ascertain whether all relevant papers have been found. Namely, if a paper that is known to be relevant is not used to train the AI-model, this paper should be found during screening. The paper may thus be used as a confirmatory check to inform when to stop screening. 
+
+The second reason is that the relevant paper at hand may not be representative of the most recent literature applicable to the review at hand. For example, during the COVID-19 pandemic, a researcher may have used research on previous pandemics and respitory diseases to train the AI model before screening, while, unbeknown to the researcher, research directly applicable to the SARS-CoV-2 was already available. Thus, if only or two relevant papers are available, a research may become stuck in what we may call an \textbf{epistemic ecochamber}. 
+
+Currently, the optimal way to obtain a representative example and avoid a cold start is to ask a domain expert to provide representative examples of relevant papers. However, it may not always be feasible to contact a domain expert. Relevant experts may be difficult to identify due to cultural or linguistics boundaries, for example. Moreover, consulting experts costs time which may be wasteful if a decision needs to be made quickly \parencite{mikkola2024prior}.
+
+
+% This is despite prior research showing that a single pair of relevant and irrelevant papers is sufficient for adequate starting performance \parencite{ferdinands2023performance, teijema2025large}. It may be, however, that the relevant example at hand is unrepresentative of the other paper relevant to the review. This may nudge the AI model to initially searching through mostly irrelevant papers, in what is known as an \textit{anchor effect}. ASK SIXU.
+
+
+% Yet during a crisis situation no examples of relevant records may be available before the start of screening. At the beginning of the pandemic, for example, experts had to rely on indirect evidence from other pandemics and respiratory diseases \parencite{kurzer2023follow, brooks2020psychological}. In this case, indirect evidence may be used to initialize the AI-model to have AI-assisted screening from the very start. 
+
+% However, this may cause the screener to become stuck on an unrepresentative subset of the relevant papers . 
+
+
+
+Thus, the current study aimed to inform evidence-based decision-making, particularly in time-sensitive situations, by investigating whether adequate starting performance in AI-assisted systematic reviews can be achieved when there are no examples of relevant papers available. 
+
+\subsection{Limitations}
+
+There are a few notable limitations to the current study. 
+
+First, the use of LLMs to generate examples of relevant titles and abstracts was limited to OpenAI's gpt-4o-mini model with limited prompt engineering. This was due to early analyses showing no effect on starting performance of how the LLMs were instructed. These early results, in combination with the undesirability of using LLMs discussed in detail below, lead to this path being disregarded. 
+
+Second, screening was simulated for a limited number of published systematic reviews, limiting the representability of the findings. Future studies may consider replicating the results of the current study using more published systematic reviews. A large number of fully screened and labelled systematic reviews (i.e., no AI-assistant used) will be published as SYNERGY 2.0 soon. 
+
+Finally, the current study simulated the starting performance of AI-assisted systematic reviews using published systematic reviews. We have no experience in conducting AI-assisted systematic reviews in crisis situations, for example. This limits our ability inform practice to generic, quantitative conclusions. Future studies may wish to investigate the practical limitations of applying AI-assisted systematic reviews in more detail. One approach could be to conduct qualitative studies, such as process analyses. 
+
+For example, it has been suggested that including stake-holders in more steps of the review process, improves knowledge synthesis \parencite{tricco2018engaging}
+
+\section{Conclusion} 
+
+The conclusion is that the cold start problem can be overcome by using the eligibility criteria of a systematic review to initialize the active learning model, and that LLM-generated examples do not improve starting performance beyond that achieved through initialisation using the systematic review's eligibility criteria criteria directly.
+
+\subsection{Practical implications}
+
+\begin{enumerate}
+  \item Practical implications of the current study include:
+    \begin{enumerate}
+        \item If no prior examples of relevant papers are available, the eligibility criteria of a systematic review can be used to initialize the active learning model and overcome the cold start problem. 
+        \item Don't use LLMs. LLMs add very little at most and there are many disadvantages to their use. Spend this time making the eligibility criteria more clear yourself.
+        \item If one true example of a relevant paper is available, still use the eligibility criteria to initialize the model. This way your true paper can be used as a test for completeness of your screening (i.e., stopping rule is reached when the true example is found -- cite Tale \& Josien).
+        \item ...
+    \end{enumerate}
+\end{enumerate}
+
+
+% \begin{figure}[htbp]
+%   \centering
+%   \includegraphics[width=0.2\textwidth]{vector_space/LLM_vector_space.png}
+%   \includegraphics[width=0.2\textwidth]{vector_space/random_vector_space.png}
+%   \includegraphics[width=0.2\textwidth]{vector_space/no_vector_space.png}
+%   \caption{Ideal starting point for systematic reviews using active learning}
+%   \label{fig:my-image}
+% \end{figure}
+
+
+% \subsubsection{Simulation design}
+
+% In other words, whether, in the case of AI-assisted reviewing, prompt engineering actually aids in knowledge discovery or whether LLMs simply repackage existing knowledge.
+
+% More LLM-specific variables were considered in advance (such as degree of jargon), however, because early simulations showed difference between the LLM- and criteria-based initialisation conditions, these variables were not further investigated. Future work may consider these variables in more detail.
+
+% Most eligibility criteria are written in either conjunctive or disjunctive form. In the latter case, all the inclusion criteria must be met for a paper to be included, whereas in the former, only one must be met. This may affect how useful LLM-generated examples are compared to using the eligibility criteria directly or selecting random examples. This is because, for criteria in conjunctive form, abstracts will be relevant if and only if all the terms from the eligibility criteria are mentioned. In contrast, for criteria in in disjunctive form, the relevant abstracts will likely only contain one of the many terms mentioned in the eligibility criteria. 
+
+% \subsubsection{Statistical Analysis}
+
+% AI-assistant screening is actually sequence dependent. This is ignored by simply the summed successes and number of retrievals. Future work may consider modelling the sequence directly.
+
+% The response variable makes sense to be viewed as a proportion and not a count because we know the true number of total relevant records. Future work modelling the retrieval of actual retrievals may more aptly consider it counts instead (e.g., Poisson).
+
+% GLMM assume that the random effects are normally distributed (i.e., that the difference in starting performance between datasets follows a normal distribution). However, based on the results of a previous simulation study comparing the normalized loss performance of AI-assistant screening for different datasets, this seems unlikely \parencite{teijema2025large}. Future work may consider specifying a different random-effects distribution using hierarichal generalized linear models (HGLMs) or Bayesian methods.
+% \subsection{Limitations}
+
+% \begin{enumerate}
+%     \item only one LLM used (gpt-4o-mini). Future work may consider other LLMs (e.g., open source LLMs).
+%     \item Key limitation simulation study: data leakage (i.e., LLMs have been trained on synergy datasets). The ecological validity of the results are therefore somewhat limited.
+%     \begin{enumerate}
+%         \item There are two obvious solutions to the problem of data leakage: (1) apply the use of LLm-initialization on a new systematic review, and (2) use an older LLM from hugging face for example. 
+%     \end{enumerate}
+%     \item Another possible limitation: no switching of active leaning cycles (could fix contamination of synthetic data issue). 
+%     \item The multilevel model assumption of heterogeneity between conditions may not hold. 
+%     \item The effect of the length abstract may be small in part because this parameter had limited effect on the generated abstracts. However, since early analyses showed that the effect of the other LLM-specific parameters was limited (i.e., for temperature and number of abstracts), it is unlikely that the effect of length of abstract would be large either.
+% \end{enumerate}
+
+% Clusters should not be a problem because we only focus on starting performance (i.e., first 100 screened). Future work may consider the contamination hypothesis in more detail. 
+
+\newpage
+
+\appendix
+\addcontentsline{toc}{part}{Appendix} % adds "Appendix" to table of contents
+\part*{\Large Appendix}                       % prints "Appendix" as a unnumbered heading
+
+
+\FloatBarrier
+\section{SYNERGY metadata}
+
+\begin{table} [h!]
+\centering
+\caption{SYNERGY datasets overview}
+\label{tab:SYNERGY}
+\begin{tabularx}{\textwidth}{@{}r l X r r r@{}}
+\toprule
+\textbf{Nr} & \textbf{Dataset} & \textbf{Topic(s)} & \textbf{Records} & \textbf{Included} & \textbf{\%} \\
+\midrule
+1  & Appenzeller-Herzog\_2019 & Medicine & 2873  & 26  & 0.9 \\
+2  & Bos\_2018                 & Medicine & 4878  & 10  & 0.2 \\
+3  & Brouwer\_2019             & Psychology, Medicine & 38114 & 62  & 0.2 \\
+4  & Chou\_2003                & Medicine & 1908  & 15  & 0.8 \\
+5  & Donners\_2021             & Medicine & 258   & 15  & 5.8 \\
+6  & Hall\_2012                & Computer science & 8793  & 104 & 1.2 \\
+7  & Leenaars\_2019            & Psychology, Chemistry, Medicine & 5812  & 17  & 0.3 \\
+8  & Leenaars\_2020            & Medicine & 7216  & 583 & 8.1 \\
+9  & Meijboom\_2021            & Medicine & 882   & 37  & 4.2 \\
+10 & Menon\_2022               & Medicine & 975   & 74  & 7.6 \\
+11 & Muthu\_2021               & Medicine & 2719  & 336 & 12.4 \\
+12 & Nelson\_2002              & Medicine & 366   & 80  & 21.9 \\
+13 & Oud\_2018                 & Psychology, Medicine & 952   & 20  & 2.1 \\
+14 & Radjenovic\_2013          & Computer science & 5935  & 48  & 0.8 \\
+15 & Sep\_2021                 & Psychology & 271   & 40  & 14.8 \\
+16 & Smid\_2020                & Computer science, Mathematics & 2627  & 27  & 1.0 \\
+17 & van\_de\_Schoot\_2018     & Psychology, Medicine & 4544  & 38  & 0.8 \\
+18 & van\_der\_Valk\_2021      & Medicine, Psychology & 725   & 89  & 12.3 \\
+19 & van\_der\_Waal\_2022      & Medicine & 1970  & 33  & 1.7 \\
+20 & van\_Dis\_2020            & Psychology, Medicine & 9128  & 72  & 0.8 \\
+21 & Walker\_2018              & Biology, Medicine & 48375 & 762 & 1.6 \\
+22 & Wassenaar\_2017           & Medicine, Biology, Chemistry & 7668  & 111 & 1.4 \\
+23 & Wolters\_2018             & Medicine & 4280  & 19  & 0.4 \\
+\bottomrule
+\multicolumn{6}{p{\textwidth}}{\footnotesize\textit{Note:} Three of the datasets included in the original SYNERGY dataset were excluded entirely due to data quality issues: Chou\_2004, Moran\_2021 and Jeyaraman\_2020.}
+\end{tabularx}
+\end{table}
+
+\section{LLM generated abstracts}
+\label{sec: LLM generated abstracts}
+
+\begin{tcolorbox}[title=Eligibiltiy Criteria, colback=gray!10, colframe=gray!50, fontupper=\small]
+To be eligible for inclusion in the SR sample, documents had to fulfil the following criteria:
+\begin{enumerate}[leftmargin=*, nosep]
+    \item identify explicitly as a "systematic review" in their title;
+    \item assess the effect of a non-acute, non-communicable, environmental exposure on a health outcome;
+    \item include studies in people or mammalian models;
+    \item be available in HTML format;
+    \item be published between 1 January 2019 and 30 June 2020.
+\end{enumerate}
+\end{tcolorbox}
+
+\begin{tcolorbox}[title=LLM-generated Abstract, colback=gray!10, colframe=gray!50, fontupper=\small]
+\textbf{title: }The Impact of Urban Air Pollution on Respiratory Health: A Systematic Review: \newline \textbf{abstract: }This systematic review evaluates the effects of urban air pollution, a significant non-acute, non-communicable environmental exposure, on respiratory health outcomes in human populations. Spanning studies published between January 2019 and June 2020, this review incorporates findings from various research articles available in HTML format, ensuring compatibility with blinding strategies. The analysis details how exposure to pollutants, including particulate matter and nitrogen dioxide, correlates with increased incidences of asthma, chronic obstructive pulmonary disease (COPD), and other respiratory ailments. The review synthesizes data from multiple cohorts, emphasizing the need for public health interventions to mitigate pollution's impact on vulnerable populations. We discuss the implications of these findings in the context of urban planning and policy-making, aiming to foster environments that protect respiratory health.
+\end{tcolorbox}
+
+% References
+\FloatBarrier
+\printbibliography
+%TC:endignore
+
+\end{document}
+
+
+
+
+% \begin{tcolorbox}[title=Eligibiltiy Criteria, colback=gray!10, colframe=gray!50, fontupper=\small]
+% The search was not limited by the year of publication. Journal papers and conference proceedings were included. The search was limited to English.
+
+% During the systematic review, we included empirical studies validating and assessing software metrics in the area of software fault prediction. For the selection of primary studies, the following
+% inclusion and exclusion criteria were used. Inclusion criteria:
+% Empirical studies (academic and industry) using large and small scale data sets AND.
+% Studies comparing software metrics performance in the area of software fault prediction.
+
+% Exclusion criteria:
+%  Studies without an empirical validation or including experimental results of software metrics in fault prediction OR.
+% Studies discussing software metrics in a context other than software
+% fault prediction (e.g. maintainability) OR.
+% Studies discussing modeling techniques (e.g. Naive Bayes, Random
+% Forest) and not software metrics.
+% Studies discussing and comparing prediction techniques were
+% excluded from the review,
+% Studies proposing new software metrics and not empirically
+% validating them were also excluded
+% \end{tcolorbox}
+
+
+
+
+% \section{Format exported simulation results} \label{sec:format_exported_simulation_results}
+
+% Each simulation run is stored in a separate CSV file. Every row represents a screened paper and contains the following information:
+
+% \begin{enumerate}[label=\arabic*), leftmargin=*, nosep]
+%   \item The paper's record ID,
+%   \item The assigned label (i.e., relevant or irrelevant),
+%   \item The classifier, querier, balancer and feature extractor used,
+%   \item The size of the training set,
+%   \item A time tag.
+% \end{enumerate} 
+
+% Furthermore, the following naming convention is used for the CSV files: \newline condition\_run\_run\_IVs\_n\_abstracts\_length\_abstracts\_llm\_temperature.csv. The same naming convention is used for the recall plots of each simulation run and for the generated abstracts in the LLM initialisation condition.
+
+% Finally, at the end of each run, the current values of the input parameters, the outcome variables and other relevant metadata are appended to a long format master dataframe for analysis. The columns of this dataframe are as follows:
+
+% \begin{enumerate}[label=\arabic*), leftmargin=*, nosep]
+%     \item the name of the outcome variable
+%     \item the value of the outcome variable
+%     \item name of the simulated dataset,
+%     \item the condition,
+%     \item the values of the independent variables (NaN for the control conditions):
+%         \begin{enumerate}
+%         \item number of abstracts
+%         \item length of the abstracts
+%         \item temperature settings of the llm (i.e., diversity)
+%         \end{enumerate}
+%     \item timestamp
+%     \item the run number
+% \end{enumerate}
+
+% This yields a data-frame containing one observation for each combination of dataset (n=26), condition (n=3), independent variables and their levels (n=$3 \times 4 \times 4 \times 5 \times 5 = 1200$), and run (n=1), thus with $26 \times 3 \times 1200 \times 1 = 93600$ rows, and the 12 columns enumerated above. 
+
+% \section{Padding} \label{sec:padding}
+
+% It is worth noting that the simulation may stop prematurely if all the relevant records are found before the stopping rule is reached (e.g. after screening 100 records). To accurately emulate a researcher who is unaware that all the relevant records have been found and therefore continues screening until the stopping rule is reached, the simulation results were supplemented with rows containing the label 'zero' (i.e. irrelevant records) until the stopping rule would have been reached. This process is referred to as 'padding' and ensures that the final simulation results are accurate.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
