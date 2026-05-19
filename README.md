@@ -1,8 +1,8 @@
-# Jump-Starting Evidence Synthesis
+# Addressing the Cold Start Problem in AI-Assisted Systematic Reviews
 
 This repository contains the code and data to reproduce the results of:
 
-> *Jump-Starting Evidence Synthesis: Initializing Active Learning Models for Systematic Reviews Using LLM-Generated Data*
+> *Addressing the Cold Start Problem in AI-Assisted Systematic Reviews*
 > Timo van Ommeren — MSc thesis, Utrecht University (2026)
 
 The study investigates the **cold start problem** in AI-assisted systematic review screening using [ASReview](https://asreview.nl). Four initialization conditions are compared across 23 systematic review datasets from the [SYNERGY corpus](https://github.com/asreview/synergy-dataset):
@@ -111,8 +111,8 @@ Two paths are provided. **Path B is recommended** for most readers, as it bypass
 #### 1. Clone the repository
 
 ```bash
-git clone https://github.com/timovanommeren/thesis_timo.git
-cd thesis_timo
+git clone https://github.com/timovanommeren/addressing_the_cold_start_problem_in_AI_assisted_systematic_reviews.git
+cd addressing_the_cold_start_problem_in_AI_assisted_systematic_reviews
 ```
 
 #### 2. Set up the Python environment
@@ -212,8 +212,8 @@ The compiled PDF is written to `Report/main.pdf`.
 #### 1. Clone the repository and restore the R environment
 
 ```bash
-git clone https://github.com/timovanommeren/thesis_timo.git
-cd thesis_timo
+git clone https://github.com/timovanommeren/addressing_the_cold_start_problem_in_AI_assisted_systematic_reviews.git
+cd addressing_the_cold_start_problem_in_AI_assisted_systematic_reviews
 ```
 
 Open [`statistical_analysis.Rproj`](statistical_analysis.Rproj) in RStudio, then run:
@@ -226,9 +226,9 @@ renv::restore()
 
 The pre-computed simulation outputs are archived at:
 
-> **OSF:** [https://osf.io/PLACEHOLDER](https://osf.io/PLACEHOLDER) — *DOI to be added upon publication*
+> **OSF:** [https://osf.io/4ebmk/](https://osf.io/4ebmk/) — pre-computed simulation outputs for both runs
 
-Download the archive and extract it so your local directory looks like:
+The OSF archive contains two CSV files — the main simulation results (`run_01`) and the supplementary criteria-modification results (`run_varying_eligibility_criteria`). Download the archive and extract it so your local directory looks like:
 
 ```
 simulation_results/
@@ -273,4 +273,4 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 ## Permissions and Access
 
-This repository will be publicly available at [https://github.com/timovanommeren/thesis_timo](https://github.com/timovanommeren/thesis_timo). Full responsibility for the content lies with Timo van Ommeren. For questions, contact [timovanommeren@gmail.com](mailto:timovanommeren@gmail.com).
+This repository will be publicly available at [https://github.com/timovanommeren/addressing_the_cold_start_problem_in_AI_assisted_systematic_reviews](https://github.com/timovanommeren/addressing_the_cold_start_problem_in_AI_assisted_systematic_reviews). Full responsibility for the content lies with Timo van Ommeren. For questions, contact [timovanommeren@gmail.com](mailto:timovanommeren@gmail.com).
